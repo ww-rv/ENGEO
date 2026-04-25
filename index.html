@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>WordQuest · Geo-Game</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800;1,9..144,700&family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: WELCOME                                        -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen active" id="s-welcome">
+  <div class="welcome-center">
+    <div id="hero-badge" class="hero-badge" onclick="logoTap()">
+      <div class="hero-ring"></div>
+      <div class="hero-emoji">🧭</div>
+      <div class="hero-tag">5-B</div>
+    </div>
+    <h1 class="welcome-title">Word<br><span class="welcome-italic">Quest</span></h1>
+    <p class="welcome-mono">Classroom Expedition · English 5–6</p>
+    <p class="welcome-desc">
+      Walk around the classroom. Find QR cache codes. Solve English &amp; Geography puzzles. Get coordinates to the next code!
+    </p>
+    <div class="trap-warning">⚠️ Beware of TRAP codes — they freeze your team!</div>
+  </div>
+  <div class="welcome-actions">
+    <button class="btn btn-gold" id="w-main-btn" onclick="welcomeMainBtn()">Start Expedition</button>
+    <button class="btn btn-ghost" id="w-continue-btn" style="display:none" onclick="navigate('hunt')">Continue Game</button>
+    <button class="btn-text w-full center" onclick="openTeacher()">✶ TEACHER MODE ✶</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: REGISTER                                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-register">
+  <div class="hbar">
+    <button class="hbar-back" onclick="navigate('welcome')">←</button>
+    <div class="hbar-title">
+      <div class="hbar-main">Choose Your Team</div>
+      <div class="hbar-sub">Class 5-B · Spring Hunt</div>
+    </div>
+    <div class="hbar-right"></div>
+  </div>
+  <div class="spacer20"></div>
+  <div class="screen-body">
+    <div class="card">
+      <div class="label-mono">YOUR EXPLORER NAME</div>
+      <input id="reg-name" class="text-input" type="text" maxlength="30" placeholder="Enter your team name…">
+    </div>
+    <div class="label-mono" style="margin:4px 0 2px;">SELECT TEAM</div>
+    <div class="teams-grid" id="teams-grid"></div>
+    <div id="reg-err" class="msg-err" style="display:none;"></div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn btn-gold" onclick="doRegister()">Join Team →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: HUNT                                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-hunt">
+  <div class="hbar">
+    <div style="width:34px;"></div>
+    <div class="hbar-title">
+      <div class="hbar-main" id="hunt-title">Cache #1</div>
+      <div class="hbar-sub" id="hunt-sub">Find the QR code · 0 of 5</div>
+    </div>
+    <div class="hbar-right">
+      <div class="coin-pill" id="hunt-coins">⭐ 0</div>
+    </div>
+  </div>
+  <div class="spacer20"></div>
+  <div class="screen-body">
+    <div>
+      <div class="progress-bar"><div class="progress-fill" id="hunt-progress" style="width:0%"></div></div>
+      <div class="progress-labels">
+        <span id="hunt-team-label">Team: —</span>
+        <span id="hunt-progress-label">0 / 5 caches</span>
+      </div>
+    </div>
+    <div class="clue-card">
+      <div class="clue-icon">?</div>
+      <div class="clue-body">
+        <div class="clue-label">CLUE · COORDINATE</div>
+        <div class="clue-text" id="hunt-clue-text">Loading…</div>
+        <div style="margin-top:8px;"><span class="coord-badge" id="hunt-coord">📍 A·1</span></div>
+      </div>
+    </div>
+    <p class="hunt-hint">Walk to the location above, find the <strong>QR code</strong> hidden there, and scan it!</p>
+    <button class="btn btn-moss btn-scan" onclick="openScan()">📷 Scan a Cache Code</button>
+    <div id="hunt-msg" class="badge-warn" style="display:none;">
+      <span class="warn-icon">⚠️</span>
+      <span id="hunt-msg-text"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: TASK                                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-task">
+  <div class="hbar">
+    <div style="width:34px;"></div>
+    <div class="hbar-title">
+      <div class="hbar-main" id="task-header">Cache #1 — Found!</div>
+      <div class="hbar-sub">Solve to claim · English &amp; Geography</div>
+    </div>
+    <div class="hbar-right">
+      <div class="coins-badge" id="task-coins-badge">+30 ⭐</div>
+    </div>
+  </div>
+  <div class="spacer20"></div>
+  <div class="screen-body">
+    <div class="task-label" id="task-type-label">TASK · MULTIPLE CHOICE</div>
+    <div class="task-q" id="task-question">Question text here</div>
+
+    <div class="opt-grid" id="task-opts"></div>
+
+    <div id="task-unscramble" style="display:none;">
+      <p class="unscramble-hint">Tap letters to build the word ↓</p>
+      <div class="unscramble-answer" id="us-answer"></div>
+      <div class="unscramble-pool" id="us-pool"></div>
+    </div>
+
+    <div id="task-feedback" style="display:none;"></div>
+
+    <div class="badge-warn">
+      <span class="warn-circle">!</span>
+      <span><b>Watch out:</b> a wrong answer costs 10 ⭐. Trap codes freeze your team!</span>
+    </div>
+
+    <div style="flex:1;"></div>
+    <button class="btn btn-gold" id="task-submit-btn" onclick="submitAnswer()">Submit Answer</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: TRAP                                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-trap">
+  <div id="snowflakes-container" class="snowflakes-container"></div>
+  <div class="trap-center">
+    <div class="trap-circle">
+      <div class="trap-emoji" id="trap-emoji">❄️</div>
+    </div>
+    <div class="trap-label">✶ TRAP CODE ✶</div>
+    <h1 class="trap-title" id="trap-title">ICE TRAP!</h1>
+    <p class="trap-msg" id="trap-msg">Your team is frozen!</p>
+    <div class="freeze-box">
+      <div class="freeze-label">UNFREEZES IN</div>
+      <div class="freeze-timer" id="trap-timer">1:00</div>
+    </div>
+    <p class="trap-tip">Solve the bonus riddle below to thaw faster!</p>
+  </div>
+  <div id="trap-bonus" class="trap-bonus" style="display:none;">
+    <div class="bonus-card">
+      <div class="bonus-label">BONUS RIDDLE — SAVE <span id="bonus-seconds">20</span> SECONDS</div>
+      <div class="bonus-q" id="trap-bonus-q"></div>
+      <div class="opt-grid" id="trap-bonus-opts"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SCREEN: FINISH                                         -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="s-finish">
+  <div class="finish-center">
+    <div class="finish-trophy">🏆</div>
+    <div class="finish-label">EXPEDITION COMPLETE!</div>
+    <h1 class="finish-team" id="fin-team-name">The Foxes</h1>
+    <div class="finish-sub" id="fin-subtitle">All 5 caches found!</div>
+    <div class="score-box">
+      <div class="score-label">FINAL SCORE</div>
+      <div class="score-value" id="fin-score">0</div>
+      <div class="score-unit">COINS EARNED</div>
+    </div>
+    <div class="finish-time" id="fin-time">Time: 0:00</div>
+    <div class="finish-note">👉 Show this screen to your teacher!</div>
+  </div>
+  <div class="bottom-bar">
+    <button class="btn btn-finish-submit" onclick="submitToBot()">📤 Send Score to Bot</button>
+    <button class="btn btn-finish-again" onclick="resetGame()">Play Again</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- OVERLAY: QR SCANNER                                    -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="o-scan" class="overlay">
+  <div class="scan-hint" id="scan-hint-text">Point camera at the QR cache</div>
+  <div class="scan-viewport">
+    <div id="qr-reader"></div>
+    <div class="scan-corners">
+      <div class="scan-corner tl"></div>
+      <div class="scan-corner tr"></div>
+      <div class="scan-corner bl"></div>
+      <div class="scan-corner br"></div>
+      <div class="scan-inner"><div class="scan-line"></div></div>
+    </div>
+  </div>
+  <div class="scan-status">LOOKING FOR WQUEST-C0X</div>
+  <div class="scan-actions">
+    <button class="btn btn-ghost btn-ghost-dark" onclick="typeCodeManually()">⌨️ Type code</button>
+    <button class="btn btn-red" onclick="closeScan()">✕ Cancel</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- OVERLAY: TEACHER PANEL                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="o-teacher" class="overlay overlay-teacher">
+  <div class="teacher-header">
+    <h2 class="teacher-title">🔑 Teacher Panel</h2>
+    <button class="btn-text" onclick="closeTeacher()">✕ Close</button>
+  </div>
+  <div class="label-mono" style="margin-bottom:10px;">QR CODES TO PRINT</div>
+  <p class="teacher-desc">
+    Print each code below as a QR code (use <u>qr-code-generator.com</u>).
+    Place cache codes at the coordinates shown. Hide traps in tempting but wrong spots!
+  </p>
+  <div id="teacher-qr-list"></div>
+  <div class="label-mono" style="margin:20px 0 10px;">CLASSROOM GRID MAP</div>
+  <div class="grid-map">
+    Set up a <b>5×6 grid</b> in your classroom:<br>
+    • <b>Columns</b> A–E (left wall → right wall)<br>
+    • <b>Rows</b> 1–6 (front → back of room)<br><br>
+    <b>Cache placement:</b><br>
+    A·1 → Near the door / entrance<br>
+    B·6 → Bookshelf / back wall<br>
+    C·1 → Near the whiteboard<br>
+    A·4 → Windowsill / window area<br>
+    E·1 → Teacher's desk (front right)<br><br>
+    <b>Traps:</b> Place in obvious but wrong locations!
+  </div>
+  <div style="margin-top:20px;">
+    <button class="btn btn-red" onclick="if(confirm('Reset ALL game data?')){resetGame();closeTeacher();}">🗑️ Reset All Data</button>
+  </div>
+</div>
+
+<!-- Scripts: data first, then app logic -->
+<script src="js/game-data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
