@@ -69,7 +69,7 @@
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="screen" id="s-hunt">
   <div class="hbar">
-    <div style="width:34px;"></div>
+    <button class="hbar-back" onclick="navigate('welcome')" title="Home">🏠</button>
     <div class="hbar-title">
       <div class="hbar-main" id="hunt-title">Cache #1</div>
       <div class="hbar-sub" id="hunt-sub">Find the QR code · 0 of 5</div>
@@ -189,7 +189,8 @@
   </div>
   <div class="bottom-bar">
     <button class="btn btn-finish-submit" onclick="submitToBot()">📤 Send Score to Bot</button>
-    <button class="btn btn-finish-again" onclick="resetGame()">Play Again</button>
+    <button class="btn btn-finish-again" onclick="navigate('welcome')">🏠 Home</button>
+    <button class="btn btn-finish-again" style="font-size:13px;opacity:.7;" onclick="resetGame()">↺ New Game</button>
   </div>
 </div>
 
