@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "wordquest": {
+
+      "config": {
+        ".read":  true,
+        ".write": false
+      },
+
+      "teams": {
+        ".read":  true,
+        "$teamKey": {
+          ".write": true,
+          ".validate": "newData.hasChildren(['name','teamId','coins','cacheIndex','done','ts'])
+            && newData.child('name').isString()
+            && newData.child('name').val().length >= 1
+            && newData.child('name').val().length <= 40
+            && newData.child('teamId').isString()
+            && newData.child('coins').isNumber()
+            && newData.child('coins').val() >= 0
+            && newData.child('coins').val() <= 9999
+            && newData.child('cacheIndex').isNumber()
+            && newData.child('cacheIndex').val() >= 0
+            && newData.child('ts').isNumber()"
+        }
+      }
+
+    }
+  }
+}
