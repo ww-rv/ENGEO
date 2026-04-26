@@ -1280,6 +1280,19 @@ function escHtml(str) {
     tg.setBackgroundColor('#FAF3E2');
   }
 
+  // Ripple effect on tap for all interactive elements
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.btn, .opt-btn, .team-card, .letter-tile, .tp-item-card, .tp-save-btn, .tp-delete-btn, .tp-add-btn, .tp-tab');
+    if (!el) return;
+    const r   = el.getBoundingClientRect();
+    const rip = document.createElement('span');
+    rip.className   = 'ripple-el';
+    rip.style.left  = (e.clientX - r.left - 5) + 'px';
+    rip.style.top   = (e.clientY - r.top  - 5) + 'px';
+    el.appendChild(rip);
+    setTimeout(() => rip.remove(), 600);
+  }, { passive: true });
+
   // Listen for config changes from teacher in real-time
   // When teacher edits caches/traps → all students get it instantly
   fbListenConfig(cfg => {
