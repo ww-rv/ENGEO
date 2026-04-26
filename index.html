@@ -21,12 +21,12 @@
     <div id="hero-badge" class="hero-badge" onclick="logoTap()">
       <div class="hero-ring"></div>
       <div class="hero-emoji">🧭</div>
-      <div class="hero-tag">6-А</div>
+      <div class="hero-tag">5-B</div>
     </div>
     <h1 class="welcome-title">Word<br><span class="welcome-italic">Quest</span></h1>
-    <p class="welcome-mono"> · Classroom Expedition · </p>
+    <p class="welcome-mono">Classroom Expedition · English 5–6</p>
     <p class="welcome-desc">
-      Walk around the classroom. Find QR codes. Solve English &amp; Geography puzzles. Get coordinates to the next code!
+      Walk around the classroom. Find QR cache codes. Solve English &amp; Geography puzzles. Get coordinates to the next code!
     </p>
     <div class="trap-warning">⚠️ Beware of TRAP codes — they freeze your team!</div>
   </div>
@@ -97,6 +97,7 @@
     </div>
     <p class="hunt-hint">Walk to the location above, find the <strong>QR code</strong> hidden there, and scan it!</p>
     <button class="btn btn-moss btn-scan" onclick="openScan()">📷 Scan a Cache Code</button>
+    <button class="btn btn-ghost" onclick="typeCodeManually()" style="font-size:14px;padding:11px;">⌨️ Enter code manually</button>
     <div id="hunt-msg" class="badge-warn" style="display:none;">
       <span class="warn-icon">⚠️</span>
       <span id="hunt-msg-text"></span>
@@ -230,6 +231,7 @@
   <div class="tp-tabs" id="tp-tabs">
     <button class="tp-tab active" data-tab="caches"   onclick="tpSetTab('caches')">🗂️ Caches</button>
     <button class="tp-tab"        data-tab="traps"    onclick="tpSetTab('traps')">⚠️ Traps</button>
+    <button class="tp-tab"        data-tab="assign"   onclick="tpSetTab('assign')">📋 Assign</button>
     <button class="tp-tab"        data-tab="qr"       onclick="tpSetTab('qr')">🖨️ QR</button>
     <button class="tp-tab"        data-tab="live"     onclick="tpSetTab('live')">📊 Live</button>
     <button class="tp-tab"        data-tab="settings" onclick="tpSetTab('settings')">⚙️</button>
