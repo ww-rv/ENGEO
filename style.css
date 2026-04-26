@@ -1054,3 +1054,110 @@ body {
   border-radius: 8px;
   border-left: 3px solid var(--gold);
 }
+
+/* ── Assign tab ──────────────────────────────────────── */
+.tp-assign-team-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(45,33,20,.07);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(92,58,30,.08);
+}
+.tp-assign-team-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.tp-assign-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: var(--ink-s);
+  font-family: var(--fm);
+  text-transform: uppercase;
+}
+.tp-assign-caches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tp-assign-cache {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.tp-assign-label-sm {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bark);
+  font-family: var(--fm);
+}
+.tp-select-sm {
+  padding: 5px 4px;
+  border: 2px solid rgba(92,58,30,.15);
+  border-radius: 8px;
+  font-family: var(--fb);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper-w);
+  outline: none;
+  max-width: 90px;
+}
+.tp-select-sm:focus { border-color: var(--moss); }
+.tp-select-sm:disabled { opacity: .45; }
+.tp-assign-traps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tp-trap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(92,58,30,.12);
+  background: var(--paper-w);
+}
+.tp-trap-toggle input[type=checkbox] {
+  width: 16px; height: 16px;
+  accent-color: var(--moss);
+  cursor: pointer;
+}
+
+/* ── Variant editor in cache form ────────────────────── */
+.tp-variant-card {
+  background: rgba(45,90,61,.05);
+  border: 1.5px solid rgba(45,90,61,.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.tp-variant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tp-delete-btn-sm {
+  background: rgba(192,75,63,.1);
+  color: var(--berry);
+  border: 1px solid var(--berry);
+  border-radius: 7px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
