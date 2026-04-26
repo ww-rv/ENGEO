@@ -26,9 +26,50 @@ function saveCfg(cfg) {
   fbSaveConfig(cfg);
 }
 
-function getActiveCaches()   { return loadCfg().caches   || CACHES;   }
-function getActiveTraps()    { return loadCfg().traps    || TRAPS;    }
-function getActiveSettings() { return { ...SETTINGS, ...(loadCfg().settings || {}) }; }
+function getActiveCaches() {
+  try {
+    const c = loadCfg().caches;
+    return (Array.isArray(c) && c.length > 0) ? c : CACHES;
+  } catch(e) { return CACHES; }
+}
+function getActiveTraps() {
+  try {
+    const t = loadCfg().traps;
+    return (t && typeof t === 'object' && !Array.isArray(t) && Object.keys(t).length > 0) ? t : TRAPS;
+  } catch(e) { return TRAPS; }
+}
+function getActiveSettings() {
+  try { return { ...SETTINGS, ...(loadCfg().settings || {}) }; }
+  catch(e) { return SETTINGS; }
+}
+function getActiveAssignments() {
+  try {
+    const a = loadCfg().assignments;
+    return (a && typeof a === 'object') ? a : {};
+  } catch(e) { return {}; }
+}
+
+function getTeamTask(cache, cacheIdx) {
+  try {
+    if (!G.teamId) return cache.task;
+    const assign = getActiveAssignments();
+    const teamA  = assign[G.teamId];
+    if (!teamA) return cache.task;
+    const vi = Array.isArray(teamA.cacheVariants) ? (teamA.cacheVariants[cacheIdx] ?? 0) : 0;
+    if (vi === 0 || !Array.isArray(cache.variants) || !cache.variants[vi - 1]) return cache.task;
+    return cache.variants[vi - 1];
+  } catch(e) { return cache.task; }
+}
+
+function isTrapActiveForTeam(trapCode) {
+  try {
+    if (!G.teamId) return true;
+    const assign = getActiveAssignments();
+    const teamA  = assign[G.teamId];
+    if (!teamA || !teamA.activeTraps) return true;
+    return Array.isArray(teamA.activeTraps) && teamA.activeTraps.includes(trapCode);
+  } catch(e) { return true; }
+}
 
 // ── Team key (unique per game session, persists on refresh) ──────────────────
 function getTeamKey() {
@@ -269,52 +310,71 @@ function stopScanner() {
 }
 
 function typeCodeManually() {
-  const code = prompt('Type the QR code text:');
-  if (code) { closeScan(); handleQR(code.trim()); }
+  const caches      = getActiveCaches();
+  const expectedQR  = caches[G.cacheIndex]?.qr || '';
+  const code = prompt(`Enter the QR code text:\n(Expected: ${expectedQR})`);
+  closeScan(); // safe even if scanner not open
+  if (code && code.trim()) handleQR(code.trim());
 }
 
 // ─── QR LOGIC ────────────────────────────────────────────────────────────────
 
 function handleQR(raw) {
-  const code   = raw.toUpperCase().replace(/\s/g, '');
-  const caches = getActiveCaches();
-  const traps  = getActiveTraps();
+  try {
+    const code   = raw.trim().toUpperCase().replace(/\s/g, '');
+    if (!code) return;
 
-  if (G.isFrozen && G.freezeEnd && Date.now() < G.freezeEnd) {
-    showHuntMsg('Your team is still FROZEN! Wait for the timer to end.');
-    return;
-  }
+    const caches = getActiveCaches();
+    const traps  = getActiveTraps();
 
-  if (traps[code]) {
-    G.trap      = code;
-    G.bonusUsed = false;
-    G.isFrozen  = true;
-    G.freezeEnd = Date.now() + traps[code].freezeSec * 1000;
-    save();
-    navigate('trap');
-    return;
-  }
+    if (G.isFrozen && G.freezeEnd && Date.now() < G.freezeEnd) {
+      showHuntMsg('❄️ Your team is still FROZEN! Wait for the timer to end.');
+      return;
+    }
 
-  const expectedQR = caches[G.cacheIndex].qr.toUpperCase();
-  if (code === expectedQR) {
-    G.found = true;
-    save();
-    navigate('task');
-    return;
-  }
+    if (traps[code]) {
+      if (isTrapActiveForTeam(code)) {
+        G.trap      = code;
+        G.bonusUsed = false;
+        G.isFrozen  = true;
+        G.freezeEnd = Date.now() + traps[code].freezeSec * 1000;
+        save();
+        navigate('trap');
+      } else {
+        showHuntMsg('✅ Trap skipped — not active for your team. Keep searching!');
+      }
+      return;
+    }
 
-  const futureIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i > G.cacheIndex);
-  if (futureIdx >= 0) {
-    showHuntMsg(`That is Cache #${futureIdx + 1}. You need Cache #${G.cacheIndex + 1} first!`);
-    return;
-  }
-  const pastIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i < G.cacheIndex);
-  if (pastIdx >= 0) {
-    showHuntMsg('You already found that cache! Move forward.');
-    return;
-  }
+    if (!caches[G.cacheIndex]) {
+      showHuntMsg('Game error: cache not found. Please restart.');
+      return;
+    }
 
-  showHuntMsg('Unknown code. Keep searching!');
+    const expectedQR = caches[G.cacheIndex].qr.toUpperCase();
+    if (code === expectedQR) {
+      G.found = true;
+      save();
+      navigate('task');
+      return;
+    }
+
+    const futureIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i > G.cacheIndex);
+    if (futureIdx >= 0) {
+      showHuntMsg(`⏩ That is Cache #${futureIdx + 1}. Find Cache #${G.cacheIndex + 1} first!`);
+      return;
+    }
+    const pastIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i < G.cacheIndex);
+    if (pastIdx >= 0) {
+      showHuntMsg('✅ Already found! Keep moving forward.');
+      return;
+    }
+
+    showHuntMsg(`❓ Unknown code: "${code}". Expected: ${expectedQR}`);
+  } catch(e) {
+    console.error('[handleQR]', e);
+    showHuntMsg('⚠️ Error reading code. Try again.');
+  }
 }
 
 // ─── TASK ────────────────────────────────────────────────────────────────────
@@ -322,7 +382,7 @@ function handleQR(raw) {
 function renderTask() {
   const caches = getActiveCaches();
   const c = caches[G.cacheIndex];
-  const t = c.task;
+  const t = getTeamTask(c, G.cacheIndex);
   G.selectedOpt = null;
   G.unscPool    = shuffle([...(t.scrambled || [])]);
   G.unscAnswer  = [];
@@ -574,6 +634,7 @@ let TP = {
   editCacheIdx: null,
   editTrapKey:  null,
   draft:        null,       // current edit draft (deep copy)
+  assignDraft:  {},         // draft for assign tab: { [teamId]: { cacheVariants, activeTraps } }
 };
 
 // ── Open / Close ──────────────────────────────────────────────────────────────
@@ -597,6 +658,7 @@ function tpSetTab(tab) {
   TP.tab  = tab;
   TP.view = 'list';
   TP.draft = null;
+  if (tab === 'assign') tpInitAssignDraft();
   document.querySelectorAll('.tp-tab').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
@@ -650,6 +712,7 @@ function tpRenderContent() {
       switch (TP.tab) {
         case 'caches':   el.innerHTML = tpHtmlCacheList();   break;
         case 'traps':    el.innerHTML = tpHtmlTrapList();    break;
+        case 'assign':   el.innerHTML = tpHtmlAssign();      break;
         case 'qr':       el.innerHTML = tpHtmlQR();          break;
         case 'live':     el.innerHTML = tpHtmlLive([]);      tpStartLive(); break;
         case 'settings': el.innerHTML = tpHtmlSettings();    break;
@@ -803,6 +866,54 @@ function tpHtmlCacheEdit(isNew = false) {
       </div>
     </div>
 
+    <div class="tp-section">
+      <div class="tp-section-title">🔀 TASK VARIANTS (optional)</div>
+      <div class="tp-hint">Add alternative versions of this task to assign different questions to different teams.</div>
+      ${(d.variants || []).map((v, vi) => {
+        const vOptRows = (v.options || ['','','','']).map((o, oi) => `
+          <div class="opt-editor-row ${v.correct === oi ? 'correct' : ''}" id="vopt-${vi}-row-${oi}">
+            <input type="radio" class="opt-radio" name="tp-vcorrect-${vi}" value="${oi}"
+                   ${v.correct === oi ? 'checked' : ''} onchange="tpSetVariantCorrect(${vi}, ${oi})">
+            <input class="opt-editor-input" type="text" value="${escHtml(o)}"
+                   placeholder="Option ${oi + 1}" oninput="tpDraftVariant(${vi}, 'options.${oi}', this.value)">
+          </div>
+        `).join('');
+        return `
+          <div class="tp-variant-card">
+            <div class="tp-variant-header">
+              <b style="font-size:14px;color:var(--moss-deep);">Variant ${vi + 1}</b>
+              <button class="tp-delete-btn-sm" onclick="tpDeleteVariant(${vi})">✕ Remove</button>
+            </div>
+            <div class="tp-field">
+              <div class="tp-label">Task type</div>
+              <select class="tp-select" onchange="tpChangeVariantType(${vi}, this.value)">
+                <option value="mcq"        ${v.type === 'mcq' ? 'selected' : ''}>Multiple Choice (MCQ)</option>
+                <option value="unscramble" ${v.type === 'unscramble' ? 'selected' : ''}>Unscramble letters</option>
+              </select>
+            </div>
+            <div class="tp-field">
+              <div class="tp-label">Question</div>
+              <textarea class="tp-textarea" oninput="tpDraftVariant(${vi}, 'question', this.value)">${escHtml(v.question || '')}</textarea>
+            </div>
+            ${v.type === 'mcq' ? `
+              <div class="tp-field">
+                <div class="tp-label">Answer options (select ● the correct one)</div>
+                <div class="opt-editor">${vOptRows}</div>
+              </div>
+            ` : `
+              <div class="tp-field">
+                <div class="tp-label">Answer word (auto-scrambled)</div>
+                <input class="tp-input" type="text" value="${escHtml(v.answer || '')}"
+                       placeholder="e.g. AMAZON"
+                       oninput="tpDraftVariant(${vi}, 'answer', this.value.toUpperCase())">
+              </div>
+            `}
+          </div>
+        `;
+      }).join('')}
+      <button class="tp-add-btn" onclick="tpAddVariant()">➕ Add variant task</button>
+    </div>
+
     <button class="tp-save-btn" onclick="tpSaveCache()">${isNew ? '➕ Add Cache' : '💾 Save Cache'}</button>
     ${!isNew && TP.editCacheIdx !== null && getActiveCaches().length > 1 ? `
       <div style="height:8px;"></div>
@@ -839,6 +950,13 @@ function tpSaveCache() {
   // Auto-generate scrambled letters for unscramble tasks
   if (d.task.type === 'unscramble' && d.task.answer) {
     d.task.scrambled = shuffle(d.task.answer.toUpperCase().split(''));
+  }
+  if (Array.isArray(d.variants)) {
+    d.variants.forEach(v => {
+      if (v.type === 'unscramble' && v.answer) {
+        v.scrambled = shuffle(v.answer.toUpperCase().split(''));
+      }
+    });
   }
 
   const cfg = loadCfg();
@@ -1033,6 +1151,226 @@ function tpDeleteTrap(key) {
   saveCfg(cfg);
   tpShowToast('🗑️ Trap deleted');
   tpBack();
+}
+
+// ── VARIANT EDITING (inside cache editor) ────────────────────────────────────
+
+function tpAddVariant() {
+  if (!TP.draft.variants) TP.draft.variants = [];
+  TP.draft.variants.push({
+    type:     'mcq',
+    label:    'TASK · MULTIPLE CHOICE',
+    question: '',
+    options:  ['', '', '', ''],
+    correct:  0,
+  });
+  tpRenderContent();
+}
+
+function tpDeleteVariant(vi) {
+  if (!TP.draft.variants) return;
+  TP.draft.variants.splice(vi, 1);
+  tpRenderContent();
+}
+
+function tpDraftVariant(vi, path, value) {
+  if (!TP.draft.variants || !TP.draft.variants[vi]) return;
+  const parts = path.split('.');
+  let obj = TP.draft.variants[vi];
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = isNaN(parts[i]) ? parts[i] : Number(parts[i]);
+    if (!obj[k]) obj[k] = {};
+    obj = obj[k];
+  }
+  const last = parts[parts.length - 1];
+  obj[isNaN(last) ? last : Number(last)] = value;
+}
+
+function tpSetVariantCorrect(vi, oi) {
+  if (!TP.draft.variants || !TP.draft.variants[vi]) return;
+  TP.draft.variants[vi].correct = oi;
+  document.querySelectorAll(`[id^="vopt-${vi}-row-"]`).forEach((row, idx) => {
+    row.classList.toggle('correct', idx === oi);
+  });
+}
+
+function tpChangeVariantType(vi, type) {
+  if (!TP.draft.variants || !TP.draft.variants[vi]) return;
+  const v = TP.draft.variants[vi];
+  v.type = type;
+  if (type === 'mcq') {
+    v.options  = v.options || ['', '', '', ''];
+    v.correct  = v.correct ?? 0;
+    v.label    = 'TASK · MULTIPLE CHOICE';
+  } else {
+    v.answer   = v.answer || '';
+    v.scrambled = [];
+    v.label    = 'TASK · UNSCRAMBLE';
+  }
+  tpRenderContent();
+}
+
+// ── ASSIGN TAB ───────────────────────────────────────────────────────────────
+
+function tpInitAssignDraft() {
+  const caches = getActiveCaches();
+  const assign = getActiveAssignments();
+  TP.assignDraft = {};
+  TEAMS.forEach(t => {
+    const ta = assign[t.id] || {};
+    TP.assignDraft[t.id] = {
+      cacheVariants: caches.map((_, i) => ta.cacheVariants?.[i] ?? 0),
+      activeTraps:   ta.activeTraps ? [...ta.activeTraps] : null,
+    };
+  });
+  // "__all__" is a template for "apply to all" bulk action
+  TP.assignDraft.__all__ = {
+    cacheVariants: caches.map(() => 0),
+    activeTraps:   null,
+  };
+}
+
+function tpAssignVariant(teamId, cacheIdx, vi) {
+  if (!TP.assignDraft[teamId]) return;
+  TP.assignDraft[teamId].cacheVariants[cacheIdx] = vi;
+}
+
+function tpAssignTrap(teamId, trapKey, checked) {
+  if (!TP.assignDraft[teamId]) return;
+  const traps   = getActiveTraps();
+  const allKeys = Object.keys(traps);
+  if (TP.assignDraft[teamId].activeTraps === null) {
+    TP.assignDraft[teamId].activeTraps = [...allKeys];
+  }
+  if (checked) {
+    if (!TP.assignDraft[teamId].activeTraps.includes(trapKey)) {
+      TP.assignDraft[teamId].activeTraps.push(trapKey);
+    }
+  } else {
+    TP.assignDraft[teamId].activeTraps = TP.assignDraft[teamId].activeTraps.filter(k => k !== trapKey);
+  }
+  // Normalise: if all traps active → use null (means "all")
+  if (TP.assignDraft[teamId].activeTraps.length === allKeys.length) {
+    TP.assignDraft[teamId].activeTraps = null;
+  }
+}
+
+function tpSaveTeamAssignment(teamId) {
+  const cfg = loadCfg();
+  if (!cfg.assignments) cfg.assignments = {};
+  cfg.assignments[teamId] = TP.assignDraft[teamId];
+  saveCfg(cfg);
+  const name = TEAMS.find(t => t.id === teamId)?.name || teamId;
+  tpShowToast(`✅ Saved for ${name}!`);
+}
+
+function tpApplyToAll() {
+  if (!confirm('Apply the same task variants and trap settings to ALL 6 teams?')) return;
+  const all = TP.assignDraft.__all__;
+  const cfg = loadCfg();
+  if (!cfg.assignments) cfg.assignments = {};
+  TEAMS.forEach(t => {
+    cfg.assignments[t.id] = JSON.parse(JSON.stringify(all));
+    TP.assignDraft[t.id]  = JSON.parse(JSON.stringify(all));
+  });
+  saveCfg(cfg);
+  tpShowToast('✅ Applied to all 6 teams!');
+  tpRenderContent();
+}
+
+function tpHtmlAssign() {
+  const caches   = getActiveCaches();
+  const traps    = getActiveTraps();
+  const trapKeys = Object.keys(traps);
+
+  const hasAnyVariants = caches.some(c => Array.isArray(c.variants) && c.variants.length > 0);
+
+  function variantSelect(teamId, cacheIdx, cache) {
+    const vi       = TP.assignDraft[teamId]?.cacheVariants?.[cacheIdx] ?? 0;
+    const variants = Array.isArray(cache.variants) ? cache.variants : [];
+    const disabled = variants.length === 0 ? 'disabled' : '';
+    const opts = `<option value="0" ${vi === 0 ? 'selected' : ''}>Default</option>` +
+      variants.map((v, i) => `<option value="${i + 1}" ${vi === i + 1 ? 'selected' : ''}>Alt ${i + 1}</option>`).join('');
+    return `
+      <div class="tp-assign-cache">
+        <div class="tp-assign-label-sm">#${cacheIdx + 1}</div>
+        <select class="tp-select-sm" ${disabled}
+                onchange="tpAssignVariant('${teamId}', ${cacheIdx}, Number(this.value))">
+          ${opts}
+        </select>
+      </div>
+    `;
+  }
+
+  function trapToggles(teamId) {
+    if (!trapKeys.length) return '';
+    const at = TP.assignDraft[teamId]?.activeTraps;
+    return trapKeys.map(k => {
+      const active = at === null || at === undefined || at.includes(k);
+      return `
+        <label class="tp-trap-toggle">
+          <input type="checkbox" ${active ? 'checked' : ''}
+                 onchange="tpAssignTrap('${teamId}', '${k}', this.checked)">
+          <span>${traps[k].emoji} ${traps[k].title.replace(' TRAP!', '')}</span>
+        </label>
+      `;
+    }).join('');
+  }
+
+  // "Apply to all" card
+  const allCard = `
+    <div class="tp-assign-team-card" style="background:rgba(45,90,61,.05);border:1.5px dashed var(--moss);">
+      <div class="tp-assign-team-hdr">
+        <div style="font-size:24px;line-height:1;">📋</div>
+        <div>
+          <div style="font-weight:800;font-size:15px;color:var(--moss-deep);">Apply same to ALL teams</div>
+          <div style="font-size:11px;color:var(--ink-s);">Set here, then press the button</div>
+        </div>
+      </div>
+      <div class="tp-assign-label">Cache task variants:</div>
+      <div class="tp-assign-caches">
+        ${caches.map((c, ci) => variantSelect('__all__', ci, c)).join('')}
+      </div>
+      ${trapKeys.length ? `
+        <div class="tp-assign-label" style="margin-top:6px;">Active traps:</div>
+        <div class="tp-assign-traps">${trapToggles('__all__')}</div>
+      ` : ''}
+      <button class="tp-save-btn" style="margin-top:12px;background:var(--moss-deep);"
+              onclick="tpApplyToAll()">✔ Apply to ALL 6 teams</button>
+    </div>
+  `;
+
+  // Per-team cards
+  const teamCards = TEAMS.map(team => `
+    <div class="tp-assign-team-card">
+      <div class="tp-assign-team-hdr">
+        <div class="tp-item-num" style="background:${team.color};width:36px;height:36px;font-size:18px;">${team.emoji}</div>
+        <div style="font-weight:800;font-size:15px;">The ${team.name}</div>
+      </div>
+      <div class="tp-assign-label">Cache task variants:</div>
+      <div class="tp-assign-caches">
+        ${caches.map((c, ci) => variantSelect(team.id, ci, c)).join('')}
+      </div>
+      ${trapKeys.length ? `
+        <div class="tp-assign-label" style="margin-top:6px;">Active traps:</div>
+        <div class="tp-assign-traps">${trapToggles(team.id)}</div>
+      ` : ''}
+      <button class="tp-save-btn" style="margin-top:12px;" onclick="tpSaveTeamAssignment('${team.id}')">
+        💾 Save for ${team.name}
+      </button>
+    </div>
+  `).join('');
+
+  return `
+    <div class="tp-hint">Assign task variants and traps per team. Each Save syncs to all devices.</div>
+    ${!hasAnyVariants ? `
+      <div class="tp-hint" style="border-left-color:var(--moss);background:rgba(45,90,61,.07);">
+        💡 No variants yet — selectors are disabled. Go to 🗂️ Caches → edit a cache → Add variant task.
+      </div>
+    ` : ''}
+    ${allCard}
+    ${teamCards}
+  `;
 }
 
 // ── LIVE LEADERBOARD TAB ─────────────────────────────────────────────────────
@@ -1294,13 +1632,15 @@ function escHtml(str) {
   }, { passive: true });
 
   // Listen for config changes from teacher in real-time
-  // When teacher edits caches/traps → all students get it instantly
-  fbListenConfig(cfg => {
-    saveCfgLocal(cfg); // local only, no re-write to Firebase
-    // Re-render current screen if game is active
-    if (G.screen === 'hunt')   renderHunt();
-    if (G.screen === 'task')   renderTask();
-  });
+  try {
+    fbListenConfig(cfg => {
+      saveCfgLocal(cfg);
+      if (G.screen === 'hunt') renderHunt();
+      if (G.screen === 'task') renderTask();
+    });
+  } catch(e) {
+    console.warn('[WordQuest] Firebase unavailable, using local config only');
+  }
 
   const had = load();
   if (had && G.team) {
