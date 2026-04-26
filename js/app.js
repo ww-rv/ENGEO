@@ -581,9 +581,11 @@ function tpUpdateBar() {
   backBtn.style.display = inEdit ? 'block' : 'none';
   tabsEl.style.display  = inEdit ? 'none' : 'flex';
 
+  const caches = getActiveCaches();
   const titles = {
     list:         '🔑 Teacher Panel',
     'edit-cache': `✏️ Edit Cache #${(TP.editCacheIdx ?? 0) + 1}`,
+    'new-cache':  `➕ New Cache #${caches.length + 1}`,
     'edit-trap':  `✏️ Edit Trap`,
     'new-trap':   `➕ New Trap`,
   };
@@ -612,9 +614,10 @@ function tpRenderContent() {
         case 'settings': el.innerHTML = tpHtmlSettings();    break;
       }
       break;
-    case 'edit-cache': el.innerHTML = tpHtmlCacheEdit();    break;
-    case 'edit-trap':  el.innerHTML = tpHtmlTrapEdit();     break;
-    case 'new-trap':   el.innerHTML = tpHtmlTrapEdit(true); break;
+    case 'edit-cache': el.innerHTML = tpHtmlCacheEdit(false); break;
+    case 'new-cache':  el.innerHTML = tpHtmlCacheEdit(true);  break;
+    case 'edit-trap':  el.innerHTML = tpHtmlTrapEdit();       break;
+    case 'new-trap':   el.innerHTML = tpHtmlTrapEdit(true);   break;
   }
 }
 
@@ -634,7 +637,36 @@ function tpHtmlCacheList() {
         <div class="tp-item-arrow">›</div>
       </div>
     `).join('')}
+    <button class="tp-add-btn" onclick="tpNewCache()">➕ Add new cache</button>
   `;
+}
+
+function tpNewCache() {
+  const caches = getActiveCaches();
+  const prevLast = caches[caches.length - 1];
+  TP.editCacheIdx = null;
+  TP.draft = {
+    id:        `C${String(caches.length + 1).padStart(2, '0')}`,
+    qr:        `WQUEST-C${String(caches.length + 1).padStart(2, '0')}`,
+    coord:     '',
+    clue:      '',
+    task: {
+      type:    'mcq',
+      label:   'TASK · MULTIPLE CHOICE',
+      question:'',
+      options: ['', '', '', ''],
+      correct: 0,
+    },
+    nextClue:  '',
+    nextCoord: 'FINISH',
+    coins:     40,
+    isLast:    true,
+  };
+  // Previous last cache loses its isLast flag
+  TP._prevLastIdx = caches.length - 1;
+  TP.view = 'new-cache';
+  tpRenderContent();
+  tpUpdateBar();
 }
 
 function tpEditCache(idx) {
@@ -646,7 +678,7 @@ function tpEditCache(idx) {
   tpUpdateBar();
 }
 
-function tpHtmlCacheEdit() {
+function tpHtmlCacheEdit(isNew = false) {
   const d = TP.draft;
   const isMCQ        = d.task.type === 'mcq';
   const isUnscramble = d.task.type === 'unscramble';
@@ -730,7 +762,11 @@ function tpHtmlCacheEdit() {
       </div>
     </div>
 
-    <button class="tp-save-btn" onclick="tpSaveCache()">💾 Save Cache</button>
+    <button class="tp-save-btn" onclick="tpSaveCache()">${isNew ? '➕ Add Cache' : '💾 Save Cache'}</button>
+    ${!isNew && TP.editCacheIdx !== null && getActiveCaches().length > 1 ? `
+      <div style="height:8px;"></div>
+      <button class="tp-delete-btn" onclick="tpDeleteCache(${TP.editCacheIdx})">🗑️ Delete this cache</button>
+    ` : ''}
     <div style="height:8px;"></div>
   `;
 }
@@ -757,17 +793,50 @@ function tpSetCorrect(i) {
 }
 
 function tpSaveCache() {
-  // For unscramble, auto-generate scrambled letters from answer word
   const d = TP.draft;
+
+  // Auto-generate scrambled letters for unscramble tasks
   if (d.task.type === 'unscramble' && d.task.answer) {
     d.task.scrambled = shuffle(d.task.answer.toUpperCase().split(''));
   }
 
   const cfg = loadCfg();
   if (!cfg.caches) cfg.caches = JSON.parse(JSON.stringify(getActiveCaches()));
-  cfg.caches[TP.editCacheIdx] = d;
+
+  if (TP.view === 'new-cache') {
+    // Clear isLast from the previous last cache
+    if (TP._prevLastIdx != null && cfg.caches[TP._prevLastIdx]) {
+      cfg.caches[TP._prevLastIdx].isLast = false;
+    }
+    cfg.caches.push(d);
+    tpShowToast('✅ Cache added!');
+  } else {
+    cfg.caches[TP.editCacheIdx] = d;
+    tpShowToast('✅ Cache saved!');
+  }
+
   saveCfg(cfg);
-  tpShowToast('✅ Cache saved!');
+  tpBack();
+}
+
+function tpDeleteCache(idx) {
+  const caches = getActiveCaches();
+  if (caches.length <= 1) { alert('Cannot delete the only cache!'); return; }
+  if (!confirm(`Delete Cache #${idx + 1}?`)) return;
+
+  const cfg = loadCfg();
+  if (!cfg.caches) cfg.caches = JSON.parse(JSON.stringify(caches));
+  cfg.caches.splice(idx, 1);
+
+  // Make sure the last remaining cache has isLast: true
+  cfg.caches[cfg.caches.length - 1].isLast = true;
+  // All others must not have isLast
+  for (let i = 0; i < cfg.caches.length - 1; i++) {
+    cfg.caches[i].isLast = false;
+  }
+
+  saveCfg(cfg);
+  tpShowToast('🗑️ Cache deleted');
   tpBack();
 }
 
