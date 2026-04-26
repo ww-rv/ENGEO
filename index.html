@@ -217,32 +217,21 @@
 <!-- OVERLAY: TEACHER PANEL                                 -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <div id="o-teacher" class="overlay overlay-teacher">
-  <div class="teacher-header">
-    <h2 class="teacher-title">🔑 Teacher Panel</h2>
-    <button class="btn-text" onclick="closeTeacher()">✕ Close</button>
+  <!-- Top bar -->
+  <div class="tp-bar">
+    <button class="tp-back-btn" id="tp-back-btn" onclick="tpBack()" style="display:none;">← Back</button>
+    <div class="tp-bar-title" id="tp-bar-title">🔑 Teacher Panel</div>
+    <button class="tp-close-btn" onclick="closeTeacher()">✕</button>
   </div>
-  <div class="label-mono" style="margin-bottom:10px;">QR CODES TO PRINT</div>
-  <p class="teacher-desc">
-    Print each code below as a QR code (use <u>qr-code-generator.com</u>).
-    Place cache codes at the coordinates shown. Hide traps in tempting but wrong spots!
-  </p>
-  <div id="teacher-qr-list"></div>
-  <div class="label-mono" style="margin:20px 0 10px;">CLASSROOM GRID MAP</div>
-  <div class="grid-map">
-    Set up a <b>5×6 grid</b> in your classroom:<br>
-    • <b>Columns</b> A–E (left wall → right wall)<br>
-    • <b>Rows</b> 1–6 (front → back of room)<br><br>
-    <b>Cache placement:</b><br>
-    A·1 → Near the door / entrance<br>
-    B·6 → Bookshelf / back wall<br>
-    C·1 → Near the whiteboard<br>
-    A·4 → Windowsill / window area<br>
-    E·1 → Teacher's desk (front right)<br><br>
-    <b>Traps:</b> Place in obvious but wrong locations!
+  <!-- Tab bar -->
+  <div class="tp-tabs" id="tp-tabs">
+    <button class="tp-tab active" data-tab="caches"   onclick="tpSetTab('caches')">🗂️ Caches</button>
+    <button class="tp-tab"        data-tab="traps"    onclick="tpSetTab('traps')">⚠️ Traps</button>
+    <button class="tp-tab"        data-tab="qr"       onclick="tpSetTab('qr')">🖨️ Print QR</button>
+    <button class="tp-tab"        data-tab="settings" onclick="tpSetTab('settings')">⚙️ Settings</button>
   </div>
-  <div style="margin-top:20px;">
-    <button class="btn btn-red" onclick="if(confirm('Reset ALL game data?')){resetGame();closeTeacher();}">🗑️ Reset All Data</button>
-  </div>
+  <!-- Dynamic content -->
+  <div class="tp-content" id="tp-content"></div>
 </div>
 
 <!-- Scripts: data first, then app logic -->
