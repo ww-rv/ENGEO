@@ -6,6 +6,8 @@
 <title>WordQuest · Geo-Game</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800;1,9..144,700&family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -227,8 +229,9 @@
   <div class="tp-tabs" id="tp-tabs">
     <button class="tp-tab active" data-tab="caches"   onclick="tpSetTab('caches')">🗂️ Caches</button>
     <button class="tp-tab"        data-tab="traps"    onclick="tpSetTab('traps')">⚠️ Traps</button>
-    <button class="tp-tab"        data-tab="qr"       onclick="tpSetTab('qr')">🖨️ Print QR</button>
-    <button class="tp-tab"        data-tab="settings" onclick="tpSetTab('settings')">⚙️ Settings</button>
+    <button class="tp-tab"        data-tab="qr"       onclick="tpSetTab('qr')">🖨️ QR</button>
+    <button class="tp-tab"        data-tab="live"     onclick="tpSetTab('live')">📊 Live</button>
+    <button class="tp-tab"        data-tab="settings" onclick="tpSetTab('settings')">⚙️</button>
   </div>
   <!-- Dynamic content -->
   <div class="tp-content" id="tp-content"></div>
@@ -236,6 +239,7 @@
 
 <!-- Scripts: data first, then app logic -->
 <script src="js/game-data.js"></script>
+<script src="js/firebase.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
