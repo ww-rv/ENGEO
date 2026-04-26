@@ -15,13 +15,30 @@ function loadCfg() {
   } catch (e) { return {}; }
 }
 
+// Local-only save (used by Firebase listener to avoid infinite loop)
+function saveCfgLocal(cfg) {
+  try { localStorage.setItem('wq_config', JSON.stringify(cfg)); } catch (e) {}
+}
+
+// Full save: localStorage + Firebase (teacher's writes go here)
 function saveCfg(cfg) {
-  localStorage.setItem('wq_config', JSON.stringify(cfg));
+  saveCfgLocal(cfg);
+  fbSaveConfig(cfg);
 }
 
 function getActiveCaches()   { return loadCfg().caches   || CACHES;   }
 function getActiveTraps()    { return loadCfg().traps    || TRAPS;    }
 function getActiveSettings() { return { ...SETTINGS, ...(loadCfg().settings || {}) }; }
+
+// ── Team key (unique per game session, persists on refresh) ──────────────────
+function getTeamKey() {
+  let key = localStorage.getItem('wq_team_key');
+  if (!key) {
+    key = (G.teamId || 'team') + '_' + Date.now();
+    localStorage.setItem('wq_team_key', key);
+  }
+  return key;
+}
 
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 
@@ -49,8 +66,29 @@ let G = {
 
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
 
+let _fbTeamTimer = null;
 function save() {
   try { localStorage.setItem('wq_state', JSON.stringify(G)); } catch (e) {}
+  // Debounced Firebase team sync (every 2s max to avoid quota issues)
+  if (G.team) {
+    clearTimeout(_fbTeamTimer);
+    _fbTeamTimer = setTimeout(() => {
+      const caches = getActiveCaches();
+      fbSaveTeam(getTeamKey(), {
+        name:         G.team,
+        teamId:       G.teamId,
+        emoji:        G.teamEmoji || '🌿',
+        color:        G.teamColor || '#2D5A3D',
+        coins:        G.coins,
+        cacheIndex:   G.cacheIndex,
+        done:         G.done,
+        startTime:    G.startTime,
+        endTime:      G.endTime || null,
+        isFrozen:     G.isFrozen,
+        gameComplete: G.done.length >= caches.length,
+      });
+    }, 2000);
+  }
 }
 
 function load() {
@@ -63,6 +101,7 @@ function load() {
 
 function resetGame() {
   localStorage.removeItem('wq_state');
+  localStorage.removeItem('wq_team_key');
   Object.assign(G, {
     screen: 'welcome', team: null, teamId: null, teamColor: null, teamEmoji: null,
     coins: 0, cacheIndex: 0, found: false, done: [],
@@ -548,6 +587,7 @@ function openTeacher() {
 }
 
 function closeTeacher() {
+  fbStopListenLeaderboard();
   document.getElementById('o-teacher').classList.remove('active');
 }
 
@@ -611,6 +651,7 @@ function tpRenderContent() {
         case 'caches':   el.innerHTML = tpHtmlCacheList();   break;
         case 'traps':    el.innerHTML = tpHtmlTrapList();    break;
         case 'qr':       el.innerHTML = tpHtmlQR();          break;
+        case 'live':     el.innerHTML = tpHtmlLive([]);      tpStartLive(); break;
         case 'settings': el.innerHTML = tpHtmlSettings();    break;
       }
       break;
@@ -994,6 +1035,59 @@ function tpDeleteTrap(key) {
   tpBack();
 }
 
+// ── LIVE LEADERBOARD TAB ─────────────────────────────────────────────────────
+
+function tpStartLive() {
+  fbListenLeaderboard(teams => {
+    if (TP.tab !== 'live' || TP.view !== 'list') return;
+    const el = document.getElementById('tp-content');
+    if (el) el.innerHTML = tpHtmlLive(teams);
+  });
+}
+
+function tpHtmlLive(teams = []) {
+  if (!teams.length) return `
+    <div class="tp-hint">No teams have joined yet. Waiting for students…</div>
+    <div style="text-align:center;font-size:48px;margin-top:32px;opacity:.4;">⏳</div>
+  `;
+
+  const sorted = [...teams].sort((a, b) => (b.coins || 0) - (a.coins || 0));
+  const medal  = ['🥇','🥈','🥉'];
+
+  return `
+    <div class="tp-hint" style="margin-bottom:4px;">
+      Live · <b>${teams.length}</b> team${teams.length !== 1 ? 's' : ''} active
+    </div>
+    ${sorted.map((t, i) => `
+      <div class="tp-item-card" style="cursor:default;">
+        <div class="tp-item-num" style="background:${
+          i === 0 ? '#E8B547' : i === 1 ? '#A89472' : i === 2 ? '#8B5E37' : 'var(--moss-deep)'
+        };font-size:${i < 3 ? '18px' : '16px'};">
+          ${i < 3 ? medal[i] : i + 1}
+        </div>
+        <div class="tp-item-body">
+          <div class="tp-item-title">${escHtml(t.emoji || '🌿')} ${escHtml(t.name || '—')}</div>
+          <div class="tp-item-sub">
+            ${t.done?.length || 0}/${getActiveCaches().length} caches
+            ${t.isFrozen ? '· ❄️ frozen' : ''}
+            ${t.gameComplete ? '· 🏆 FINISHED' : '· cache #' + ((t.cacheIndex || 0) + 1)}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:var(--fd);font-weight:800;font-size:20px;color:var(--bark);">
+            ${t.coins || 0}
+          </div>
+          <div style="font-size:9px;color:var(--ink-s);font-family:var(--fm);">⭐ COINS</div>
+        </div>
+      </div>
+    `).join('')}
+    <button class="tp-delete-btn" style="margin-top:8px;"
+            onclick="if(confirm('Clear all team data from Firebase?')){fbResetTeams().then(()=>tpShowToast('✅ All teams cleared'));}">
+      🗑️ Clear all teams
+    </button>
+  `;
+}
+
 // ── QR PRINT TAB ──────────────────────────────────────────────────────────────
 
 function tpHtmlQR() {
@@ -1059,6 +1153,14 @@ function tpHtmlSettings() {
     </div>
 
     <div class="tp-section">
+      <div class="tp-section-title">☁️ FIREBASE SYNC</div>
+      <div class="tp-hint">
+        All edits are saved to Firebase automatically. Students get updates in real-time — no link sharing needed.
+        Use the <b>📊 Live</b> tab to see all teams.
+      </div>
+    </div>
+
+    <div class="tp-section">
       <div class="tp-section-title">🔄 RESET OPTIONS</div>
       <div class="tp-hint" style="margin-bottom:10px;">
         Resetting game data clears students' progress. Resetting configuration restores all questions to defaults.
@@ -1073,6 +1175,39 @@ function tpHtmlSettings() {
       </button>
     </div>
   `;
+}
+
+function tpShareConfig() {
+  const cfg = loadCfg();
+  if (!Object.keys(cfg).length) {
+    tpShowToast('ℹ️ No custom config yet — using defaults');
+    return;
+  }
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+    const url = window.location.origin + window.location.pathname + '?cfg=' + encoded;
+    document.getElementById('tp-share-url').textContent = url;
+    document.getElementById('tp-share-result').style.display = 'block';
+
+    // Try Telegram share directly
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      const shareText = encodeURIComponent('🧭 WordQuest — open this link to load the game config:\n' + url);
+      // Telegram share URL
+      tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent('🧭 WordQuest game config'));
+    }
+  } catch (e) {
+    tpShowToast('❌ Error generating link');
+  }
+}
+
+function tpCopyShareUrl() {
+  const url = document.getElementById('tp-share-url').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    tpShowToast('✅ Link copied!');
+  }).catch(() => {
+    prompt('Copy this link and send to students:', url);
+  });
 }
 
 function tpSaveSettings() {
@@ -1144,6 +1279,15 @@ function escHtml(str) {
     tg.setHeaderColor('#1F4530');
     tg.setBackgroundColor('#FAF3E2');
   }
+
+  // Listen for config changes from teacher in real-time
+  // When teacher edits caches/traps → all students get it instantly
+  fbListenConfig(cfg => {
+    saveCfgLocal(cfg); // local only, no re-write to Firebase
+    // Re-render current screen if game is active
+    if (G.screen === 'hunt')   renderHunt();
+    if (G.screen === 'task')   renderTask();
+  });
 
   const had = load();
   if (had && G.team) {
