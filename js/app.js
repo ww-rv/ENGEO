@@ -5,7 +5,25 @@
 
 'use strict';
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
+// ─── CUSTOM CONFIG (teacher edits saved here) ─────────────────────────────────
+// Returns the active game config: custom (from teacher panel) or defaults
+
+function loadCfg() {
+  try {
+    const s = localStorage.getItem('wq_config');
+    return s ? JSON.parse(s) : {};
+  } catch (e) { return {}; }
+}
+
+function saveCfg(cfg) {
+  localStorage.setItem('wq_config', JSON.stringify(cfg));
+}
+
+function getActiveCaches()   { return loadCfg().caches   || CACHES;   }
+function getActiveTraps()    { return loadCfg().traps    || TRAPS;    }
+function getActiveSettings() { return { ...SETTINGS, ...(loadCfg().settings || {}) }; }
+
+// ─── GAME STATE ───────────────────────────────────────────────────────────────
 
 let G = {
   screen:         'welcome',
@@ -151,20 +169,21 @@ function doRegister() {
 // ─── HUNT ────────────────────────────────────────────────────────────────────
 
 function renderHunt() {
-  const c     = CACHES[G.cacheIndex];
-  const total = CACHES.length;
-  const done  = G.done.length;
-  const pct   = Math.round((done / total) * 100);
+  const caches = getActiveCaches();
+  const c      = caches[G.cacheIndex];
+  const total  = caches.length;
+  const done   = G.done.length;
+  const pct    = Math.round((done / total) * 100);
 
-  document.getElementById('hunt-title').textContent         = 'Cache #' + (G.cacheIndex + 1);
-  document.getElementById('hunt-sub').textContent           = `Find the QR code · ${done} of ${total}`;
-  document.getElementById('hunt-coins').textContent         = `⭐ ${G.coins}`;
-  document.getElementById('hunt-team-label').textContent    = `${G.teamEmoji || '🌿'} ${G.team || 'Team'}`;
+  document.getElementById('hunt-title').textContent          = 'Cache #' + (G.cacheIndex + 1);
+  document.getElementById('hunt-sub').textContent            = `Find the QR code · ${done} of ${total}`;
+  document.getElementById('hunt-coins').textContent          = `⭐ ${G.coins}`;
+  document.getElementById('hunt-team-label').textContent     = `${G.teamEmoji || '🌿'} ${G.team || 'Team'}`;
   document.getElementById('hunt-progress-label').textContent = `${done} / ${total} caches`;
-  document.getElementById('hunt-progress').style.width      = pct + '%';
-  document.getElementById('hunt-clue-text').innerHTML       = c.clue;
-  document.getElementById('hunt-coord').textContent         = '📍 ' + c.coord;
-  document.getElementById('hunt-msg').style.display         = 'none';
+  document.getElementById('hunt-progress').style.width       = pct + '%';
+  document.getElementById('hunt-clue-text').innerHTML        = c.clue;
+  document.getElementById('hunt-coord').textContent          = '📍 ' + c.coord;
+  document.getElementById('hunt-msg').style.display          = 'none';
 }
 
 function showHuntMsg(msg) {
@@ -218,27 +237,26 @@ function typeCodeManually() {
 // ─── QR LOGIC ────────────────────────────────────────────────────────────────
 
 function handleQR(raw) {
-  const code = raw.toUpperCase().replace(/\s/g, '');
+  const code   = raw.toUpperCase().replace(/\s/g, '');
+  const caches = getActiveCaches();
+  const traps  = getActiveTraps();
 
-  // Still frozen?
   if (G.isFrozen && G.freezeEnd && Date.now() < G.freezeEnd) {
     showHuntMsg('Your team is still FROZEN! Wait for the timer to end.');
     return;
   }
 
-  // Is it a trap?
-  if (TRAPS[code]) {
+  if (traps[code]) {
     G.trap      = code;
     G.bonusUsed = false;
     G.isFrozen  = true;
-    G.freezeEnd = Date.now() + TRAPS[code].freezeSec * 1000;
+    G.freezeEnd = Date.now() + traps[code].freezeSec * 1000;
     save();
     navigate('trap');
     return;
   }
 
-  // Is it the expected cache?
-  const expectedQR = CACHES[G.cacheIndex].qr.toUpperCase();
+  const expectedQR = caches[G.cacheIndex].qr.toUpperCase();
   if (code === expectedQR) {
     G.found = true;
     save();
@@ -246,15 +264,12 @@ function handleQR(raw) {
     return;
   }
 
-  // Is it a future cache?
-  const futureIdx = CACHES.findIndex((c, i) => c.qr.toUpperCase() === code && i > G.cacheIndex);
+  const futureIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i > G.cacheIndex);
   if (futureIdx >= 0) {
     showHuntMsg(`That is Cache #${futureIdx + 1}. You need Cache #${G.cacheIndex + 1} first!`);
     return;
   }
-
-  // Is it an already-found cache?
-  const pastIdx = CACHES.findIndex((c, i) => c.qr.toUpperCase() === code && i < G.cacheIndex);
+  const pastIdx = caches.findIndex((c, i) => c.qr.toUpperCase() === code && i < G.cacheIndex);
   if (pastIdx >= 0) {
     showHuntMsg('You already found that cache! Move forward.');
     return;
@@ -266,20 +281,21 @@ function handleQR(raw) {
 // ─── TASK ────────────────────────────────────────────────────────────────────
 
 function renderTask() {
-  const c = CACHES[G.cacheIndex];
+  const caches = getActiveCaches();
+  const c = caches[G.cacheIndex];
   const t = c.task;
   G.selectedOpt = null;
   G.unscPool    = shuffle([...(t.scrambled || [])]);
   G.unscAnswer  = [];
 
-  document.getElementById('task-header').textContent     = `Cache #${G.cacheIndex + 1} — Found!`;
-  document.getElementById('task-type-label').textContent = t.label;
-  document.getElementById('task-question').textContent   = t.question;
+  document.getElementById('task-header').textContent      = `Cache #${G.cacheIndex + 1} — Found!`;
+  document.getElementById('task-type-label').textContent  = t.label;
+  document.getElementById('task-question').textContent    = t.question;
   document.getElementById('task-coins-badge').textContent = `+${c.coins} ⭐`;
-  document.getElementById('task-feedback').style.display = 'none';
-  document.getElementById('task-submit-btn').disabled    = false;
-  document.getElementById('task-submit-btn').textContent = 'Submit Answer';
-  document.getElementById('task-submit-btn').onclick     = submitAnswer;
+  document.getElementById('task-feedback').style.display  = 'none';
+  document.getElementById('task-submit-btn').disabled     = false;
+  document.getElementById('task-submit-btn').textContent  = 'Submit Answer';
+  document.getElementById('task-submit-btn').onclick      = submitAnswer;
 
   if (t.type === 'unscramble') {
     document.getElementById('task-opts').style.display       = 'none';
@@ -301,16 +317,12 @@ function selectOpt(i) {
   });
 }
 
-// ─── UNSCRAMBLE UI ───────────────────────────────────────────────────────────
-
 function renderUnscramble() {
   const pool   = document.getElementById('us-pool');
   const answer = document.getElementById('us-answer');
-
   pool.innerHTML = G.unscPool.map((l, i) => `
     <button class="letter-tile" onclick="usPickFromPool(${i})">${l}</button>
   `).join('');
-
   answer.innerHTML = G.unscAnswer.length === 0
     ? '<span style="font-size:12px;color:var(--bark-l);font-style:italic;">Tap letters above to spell the answer…</span>'
     : G.unscAnswer.map((l, i) => `
@@ -323,29 +335,26 @@ function usPickFromPool(i) {
   G.unscPool.splice(i, 1);
   renderUnscramble();
 }
-
 function usRemoveFromAnswer(i) {
   G.unscPool.push(G.unscAnswer[i]);
   G.unscAnswer.splice(i, 1);
   renderUnscramble();
 }
 
-// ─── SUBMIT ANSWER ───────────────────────────────────────────────────────────
-
 function submitAnswer() {
-  const c = CACHES[G.cacheIndex];
+  const caches = getActiveCaches();
+  const c = caches[G.cacheIndex];
   const t = c.task;
   let correct = false;
 
   if (t.type === 'unscramble') {
     correct = G.unscAnswer.join('').toUpperCase() === t.answer.toUpperCase();
   } else {
-    if (G.selectedOpt === null) {
-      showTaskFeedback('❗ Select an answer first!', 'warn');
-      return;
-    }
+    if (G.selectedOpt === null) { showTaskFeedback('❗ Select an answer first!', 'warn'); return; }
     correct = G.selectedOpt === t.correct;
   }
+
+  const fine = getActiveSettings().wrongAnswerFine;
 
   if (correct) {
     G.coins += c.coins;
@@ -355,18 +364,13 @@ function submitAnswer() {
     save();
     disableTaskInputs();
     showTaskFeedback(`✅ Correct! +${c.coins} ⭐`, 'ok', () => {
-      if (c.isLast) {
-        G.endTime = Date.now();
-        save();
-        navigate('finish');
-      } else {
-        showNextClue(c);
-      }
+      if (c.isLast) { G.endTime = Date.now(); save(); navigate('finish'); }
+      else showNextClue(c);
     });
   } else {
-    G.coins = Math.max(0, G.coins - SETTINGS.wrongAnswerFine);
+    G.coins = Math.max(0, G.coins - fine);
     save();
-    showTaskFeedback(`❌ Wrong answer! −${SETTINGS.wrongAnswerFine} ⭐  Try again!`, 'err');
+    showTaskFeedback(`❌ Wrong answer! −${fine} ⭐  Try again!`, 'err');
     G.selectedOpt = null;
     document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('sel'));
     if (t.type === 'unscramble') {
@@ -385,7 +389,7 @@ function disableTaskInputs() {
 function showTaskFeedback(msg, type, cb) {
   const el = document.getElementById('task-feedback');
   const bg = { ok: 'rgba(45,90,61,.12)', err: 'rgba(192,75,63,.1)', warn: 'rgba(232,181,71,.15)' };
-  el.style.cssText = `display:block;background:${bg[type] || bg.warn};padding:12px 14px;border-radius:12px;font-weight:700;font-size:14px;text-align:center;margin-top:12px;`;
+  el.style.cssText = `display:block;background:${bg[type]||bg.warn};padding:12px 14px;border-radius:12px;font-weight:700;font-size:14px;text-align:center;margin-top:12px;`;
   el.textContent = msg;
   if (cb) setTimeout(cb, 1800);
 }
@@ -407,18 +411,18 @@ function showNextClue(c) {
 // ─── TRAP ────────────────────────────────────────────────────────────────────
 
 function renderTrap() {
-  const trap = TRAPS[G.trap];
-  document.getElementById('trap-title').textContent   = trap.title;
-  document.getElementById('trap-emoji').textContent   = trap.emoji;
-  document.getElementById('trap-msg').textContent     = trap.msg;
+  const traps = getActiveTraps();
+  const trap  = traps[G.trap];
+  document.getElementById('trap-title').textContent    = trap.title;
+  document.getElementById('trap-emoji').textContent    = trap.emoji;
+  document.getElementById('trap-msg').textContent      = trap.msg;
   document.getElementById('bonus-seconds').textContent = trap.bonusSec;
-
   spawnSnowflakes();
   startFreezeTimer();
 
   if (!G.bonusUsed) {
-    document.getElementById('trap-bonus').style.display = 'block';
-    document.getElementById('trap-bonus-q').textContent = trap.bonus.q;
+    document.getElementById('trap-bonus').style.display  = 'block';
+    document.getElementById('trap-bonus-q').textContent  = trap.bonus.q;
     document.getElementById('trap-bonus-opts').innerHTML = trap.bonus.opts.map((o, i) => `
       <button class="opt-btn" style="color:var(--paper);background:rgba(255,255,255,.12);box-shadow:none;"
               onclick="trapBonusAnswer(${i})">${o}</button>
@@ -429,7 +433,8 @@ function renderTrap() {
 }
 
 function trapBonusAnswer(i) {
-  const trap = TRAPS[G.trap];
+  const traps = getActiveTraps();
+  const trap  = traps[G.trap];
   if (i === trap.bonus.correct) {
     G.freezeEnd = Math.max(Date.now(), (G.freezeEnd || Date.now()) - trap.bonusSec * 1000);
     G.bonusUsed = true;
@@ -445,14 +450,14 @@ function trapBonusAnswer(i) {
 }
 
 function startFreezeTimer() {
-  if (!G.freezeEnd) G.freezeEnd = Date.now() + (TRAPS[G.trap]?.freezeSec || 60) * 1000;
+  const traps = getActiveTraps();
+  if (!G.freezeEnd) G.freezeEnd = Date.now() + (traps[G.trap]?.freezeSec || 60) * 1000;
   updateFreezeDisplay();
   _freezeInterval = setInterval(() => {
     const rem = Math.max(0, Math.ceil((G.freezeEnd - Date.now()) / 1000));
     document.getElementById('trap-timer').textContent = fmtSec(rem);
     if (rem <= 0) {
-      clearInterval(_freezeInterval);
-      _freezeInterval = null;
+      clearInterval(_freezeInterval); _freezeInterval = null;
       G.isFrozen = false; G.freezeEnd = null; G.trap = null;
       save();
       navigate('hunt');
@@ -470,9 +475,9 @@ function spawnSnowflakes() {
   c.innerHTML = '';
   for (let i = 0; i < 12; i++) {
     const s = document.createElement('div');
-    s.className = 'snowflake';
-    s.textContent = ['❄️', '🌨️', '❄️', '⛄'][i % 4];
-    s.style.cssText = `left:${Math.random() * 95}%;top:${-Math.random() * 50}%;font-size:${14 + Math.random() * 22}px;animation-duration:${4 + Math.random() * 6}s;animation-delay:${Math.random() * 4}s;`;
+    s.className   = 'snowflake';
+    s.textContent = ['❄️','🌨️','❄️','⛄'][i % 4];
+    s.style.cssText = `left:${Math.random()*95}%;top:${-Math.random()*50}%;font-size:${14+Math.random()*22}px;animation-duration:${4+Math.random()*6}s;animation-delay:${Math.random()*4}s;`;
     c.appendChild(s);
   }
 }
@@ -480,72 +485,560 @@ function spawnSnowflakes() {
 // ─── FINISH ──────────────────────────────────────────────────────────────────
 
 function renderFinish() {
+  const caches = getActiveCaches();
   if (!G.endTime) { G.endTime = Date.now(); save(); }
   const elapsed = G.endTime - (G.startTime || G.endTime);
   const m = Math.floor(elapsed / 60000);
   const s = Math.floor((elapsed % 60000) / 1000);
-
   document.getElementById('fin-team-name').textContent = `${G.teamEmoji || ''} The ${G.team || 'Team'}`;
-  document.getElementById('fin-subtitle').textContent  = `All ${CACHES.length} caches found!`;
+  document.getElementById('fin-subtitle').textContent  = `All ${caches.length} caches found!`;
   document.getElementById('fin-score').textContent     = G.coins;
   document.getElementById('fin-time').textContent      = `Time: ${m}m ${s}s`;
   setTimeout(spawnFireworks, 300);
 }
 
 function submitToBot() {
-  const tg = window.Telegram?.WebApp;
+  const caches = getActiveCaches();
+  const tg     = window.Telegram?.WebApp;
   if (tg && tg.sendData) {
     tg.sendData(JSON.stringify({
-      type:   'score',
-      team:   G.team,
-      teamId: G.teamId,
-      coins:  G.coins,
-      caches: G.done.length,
-      time:   Math.floor((G.endTime - G.startTime) / 1000),
+      type: 'score', team: G.team, teamId: G.teamId,
+      coins: G.coins, caches: G.done.length,
+      time: Math.floor((G.endTime - G.startTime) / 1000),
     }));
   } else {
-    alert(`Score: ${G.coins} ⭐ | Team: The ${G.team} | Caches: ${G.done.length}/${CACHES.length}\n\nShow this to your teacher!`);
+    alert(`Score: ${G.coins} ⭐ | Team: The ${G.team} | Caches: ${G.done.length}/${caches.length}\n\nShow this to your teacher!`);
   }
 }
 
 function spawnFireworks() {
-  const emojis = ['🎉', '🌟', '✨', '🌿', '🏆', '⭐', '🌸', '🎊'];
+  const emojis = ['🎉','🌟','✨','🌿','🏆','⭐','🌸','🎊'];
   for (let i = 0; i < 16; i++) {
     setTimeout(() => {
       const el = document.createElement('div');
       el.className   = 'firework';
       el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-      el.style.cssText = `left:${Math.random() * 90}vw;font-size:${24 + Math.random() * 28}px;animation-duration:${1.5 + Math.random() * 1.5}s;`;
+      el.style.cssText = `left:${Math.random()*90}vw;font-size:${24+Math.random()*28}px;animation-duration:${1.5+Math.random()*1.5}s;`;
       document.body.appendChild(el);
       setTimeout(() => el.remove(), 3000);
     }, i * 200);
   }
 }
 
-// ─── TEACHER PANEL ───────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+//  TEACHER PANEL
+// ════════════════════════════════════════════════════════════════════════════
+
+let TP = {
+  tab:          'caches',   // active tab
+  view:         'list',     // 'list' | 'edit-cache' | 'edit-trap'
+  editCacheIdx: null,
+  editTrapKey:  null,
+  draft:        null,       // current edit draft (deep copy)
+};
+
+// ── Open / Close ──────────────────────────────────────────────────────────────
 
 function openTeacher() {
   const pin = prompt('Enter teacher PIN:');
-  if (pin !== SETTINGS.teacherPin) { alert('Wrong PIN!'); return; }
-
-  const items = [
-    ...CACHES.map(c => ({ code: c.qr, label: `Cache #${parseInt(c.id.slice(1))} · Coord ${c.coord}`, type: 'cache' })),
-    ...Object.keys(TRAPS).map(k => ({ code: k, label: `Trap: ${TRAPS[k].title}`, type: 'trap' })),
-  ];
-  document.getElementById('teacher-qr-list').innerHTML = items.map(it => `
-    <div class="qr-row">
-      <div>
-        <div class="qr-code-text">${it.code}</div>
-        <div style="font-size:11px;color:var(--ink-s);margin-top:2px;">${it.label}</div>
-      </div>
-      <span class="qr-type-badge ${it.type === 'cache' ? 'badge-cache' : 'badge-trap'}">${it.type.toUpperCase()}</span>
-    </div>
-  `).join('');
+  if (pin !== getActiveSettings().teacherPin) { alert('Wrong PIN!'); return; }
+  TP.tab = 'caches'; TP.view = 'list';
+  tpRender();
   document.getElementById('o-teacher').classList.add('active');
 }
 
 function closeTeacher() {
   document.getElementById('o-teacher').classList.remove('active');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+
+function tpSetTab(tab) {
+  TP.tab  = tab;
+  TP.view = 'list';
+  TP.draft = null;
+  document.querySelectorAll('.tp-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+// ── Back navigation ───────────────────────────────────────────────────────────
+
+function tpBack() {
+  TP.view  = 'list';
+  TP.draft = null;
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+function tpUpdateBar() {
+  const backBtn   = document.getElementById('tp-back-btn');
+  const titleEl   = document.getElementById('tp-bar-title');
+  const tabsEl    = document.getElementById('tp-tabs');
+  const inEdit    = TP.view !== 'list';
+  backBtn.style.display = inEdit ? 'block' : 'none';
+  tabsEl.style.display  = inEdit ? 'none' : 'flex';
+
+  const titles = {
+    list:         '🔑 Teacher Panel',
+    'edit-cache': `✏️ Edit Cache #${(TP.editCacheIdx ?? 0) + 1}`,
+    'edit-trap':  `✏️ Edit Trap`,
+    'new-trap':   `➕ New Trap`,
+  };
+  titleEl.textContent = titles[TP.view] || '🔑 Teacher Panel';
+}
+
+// ── Main render dispatcher ────────────────────────────────────────────────────
+
+function tpRender() {
+  // Sync tab UI
+  document.querySelectorAll('.tp-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === TP.tab);
+  });
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+function tpRenderContent() {
+  const el = document.getElementById('tp-content');
+  switch (TP.view) {
+    case 'list':
+      switch (TP.tab) {
+        case 'caches':   el.innerHTML = tpHtmlCacheList();   break;
+        case 'traps':    el.innerHTML = tpHtmlTrapList();    break;
+        case 'qr':       el.innerHTML = tpHtmlQR();          break;
+        case 'settings': el.innerHTML = tpHtmlSettings();    break;
+      }
+      break;
+    case 'edit-cache': el.innerHTML = tpHtmlCacheEdit();    break;
+    case 'edit-trap':  el.innerHTML = tpHtmlTrapEdit();     break;
+    case 'new-trap':   el.innerHTML = tpHtmlTrapEdit(true); break;
+  }
+}
+
+// ── CACHES TAB ────────────────────────────────────────────────────────────────
+
+function tpHtmlCacheList() {
+  const caches = getActiveCaches();
+  return `
+    <div class="tp-hint">Tap a cache to edit its clue, question, or answers.</div>
+    ${caches.map((c, i) => `
+      <div class="tp-item-card" onclick="tpEditCache(${i})">
+        <div class="tp-item-num">${i + 1}</div>
+        <div class="tp-item-body">
+          <div class="tp-item-title">Cache #${i + 1} &mdash; ${c.coord}</div>
+          <div class="tp-item-sub">${c.task.type.toUpperCase()} · ${c.coins} ⭐ · ${c.task.question.slice(0, 45)}…</div>
+        </div>
+        <div class="tp-item-arrow">›</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function tpEditCache(idx) {
+  const caches = getActiveCaches();
+  TP.editCacheIdx = idx;
+  TP.draft        = JSON.parse(JSON.stringify(caches[idx])); // deep copy
+  TP.view         = 'edit-cache';
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+function tpHtmlCacheEdit() {
+  const d = TP.draft;
+  const isMCQ        = d.task.type === 'mcq';
+  const isUnscramble = d.task.type === 'unscramble';
+  const isLast       = !!d.isLast;
+
+  const optRows = (d.task.options || ['','','','']).map((o, i) => `
+    <div class="opt-editor-row ${d.task.correct === i ? 'correct' : ''}" id="opt-row-${i}">
+      <input type="radio" class="opt-radio" name="tp-correct" value="${i}"
+             ${d.task.correct === i ? 'checked' : ''}
+             onchange="tpSetCorrect(${i})">
+      <input class="opt-editor-input" type="text" value="${escHtml(o)}"
+             placeholder="Option ${i+1}"
+             oninput="tpDraft('task.options.${i}', this.value)">
+    </div>
+  `).join('');
+
+  return `
+    <div class="tp-section">
+      <div class="tp-section-title">📍 LOCATION</div>
+      <div class="tp-field">
+        <div class="tp-label">Coordinate (e.g. A·1)</div>
+        <input class="tp-input" type="text" value="${escHtml(d.coord)}" oninput="tpDraft('coord', this.value)">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Clue text (shown to students)</div>
+        <textarea class="tp-textarea" oninput="tpDraft('clue', this.value)">${escHtml(d.clue)}</textarea>
+      </div>
+    </div>
+
+    <div class="tp-section">
+      <div class="tp-section-title">🧩 TASK</div>
+      <div class="tp-field">
+        <div class="tp-label">Task type</div>
+        <select class="tp-select" onchange="tpChangeCacheType(this.value)">
+          <option value="mcq"        ${d.task.type==='mcq'?'selected':''}>Multiple Choice (MCQ)</option>
+          <option value="unscramble" ${d.task.type==='unscramble'?'selected':''}>Unscramble letters</option>
+        </select>
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Task label (e.g. TASK · FILL THE GAP)</div>
+        <input class="tp-input" type="text" value="${escHtml(d.task.label)}" oninput="tpDraft('task.label', this.value)">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Question</div>
+        <textarea class="tp-textarea" oninput="tpDraft('task.question', this.value)">${escHtml(d.task.question)}</textarea>
+      </div>
+
+      ${isMCQ ? `
+        <div class="tp-field">
+          <div class="tp-label">Answer options (select ● the correct one)</div>
+          <div class="opt-editor">${optRows}</div>
+        </div>
+      ` : ''}
+
+      ${isUnscramble ? `
+        <div class="tp-field">
+          <div class="tp-label">Answer word (auto-scrambled for students)</div>
+          <input class="tp-input" type="text" value="${escHtml(d.task.answer||'')}"
+                 placeholder="e.g. EVEREST"
+                 oninput="tpDraft('task.answer', this.value.toUpperCase())">
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="tp-section">
+      <div class="tp-section-title">➡️ NEXT STEP</div>
+      ${!isLast ? `
+        <div class="tp-field">
+          <div class="tp-label">Next cache coordinate</div>
+          <input class="tp-input" type="text" value="${escHtml(d.nextCoord||'')}" oninput="tpDraft('nextCoord', this.value)">
+        </div>
+        <div class="tp-field">
+          <div class="tp-label">Next clue text</div>
+          <textarea class="tp-textarea" oninput="tpDraft('nextClue', this.value)">${escHtml(d.nextClue||'')}</textarea>
+        </div>
+      ` : `<div class="tp-hint">This is the last cache — no next clue needed.</div>`}
+      <div class="tp-field">
+        <div class="tp-label">Coins reward for correct answer</div>
+        <input class="tp-input-sm" type="number" min="0" max="999" value="${d.coins}"
+               oninput="tpDraft('coins', Number(this.value))">
+      </div>
+    </div>
+
+    <button class="tp-save-btn" onclick="tpSaveCache()">💾 Save Cache</button>
+    <div style="height:8px;"></div>
+  `;
+}
+
+function tpChangeCacheType(type) {
+  TP.draft.task.type = type;
+  if (type === 'mcq') {
+    TP.draft.task.options = TP.draft.task.options || ['','','',''];
+    TP.draft.task.correct = TP.draft.task.correct ?? 0;
+    TP.draft.task.label   = TP.draft.task.label || 'TASK · MULTIPLE CHOICE';
+  } else {
+    TP.draft.task.answer   = TP.draft.task.answer || '';
+    TP.draft.task.scrambled = [];
+    TP.draft.task.label    = TP.draft.task.label || 'TASK · UNSCRAMBLE';
+  }
+  tpRenderContent();
+}
+
+function tpSetCorrect(i) {
+  TP.draft.task.correct = i;
+  document.querySelectorAll('.opt-editor-row').forEach((row, idx) => {
+    row.classList.toggle('correct', idx === i);
+  });
+}
+
+function tpSaveCache() {
+  // For unscramble, auto-generate scrambled letters from answer word
+  const d = TP.draft;
+  if (d.task.type === 'unscramble' && d.task.answer) {
+    d.task.scrambled = shuffle(d.task.answer.toUpperCase().split(''));
+  }
+
+  const cfg = loadCfg();
+  if (!cfg.caches) cfg.caches = JSON.parse(JSON.stringify(getActiveCaches()));
+  cfg.caches[TP.editCacheIdx] = d;
+  saveCfg(cfg);
+  tpShowToast('✅ Cache saved!');
+  tpBack();
+}
+
+// ── TRAPS TAB ─────────────────────────────────────────────────────────────────
+
+function tpHtmlTrapList() {
+  const traps = getActiveTraps();
+  const keys  = Object.keys(traps);
+  return `
+    <div class="tp-hint">Trap codes freeze students for a set time. Tap to edit.</div>
+    ${keys.map(k => `
+      <div class="tp-item-card" onclick="tpEditTrap('${k}')">
+        <div class="tp-item-num trap">${traps[k].emoji}</div>
+        <div class="tp-item-body">
+          <div class="tp-item-title">${traps[k].title}</div>
+          <div class="tp-item-sub">${k} · Freeze: ${traps[k].freezeSec}s</div>
+        </div>
+        <div class="tp-item-arrow">›</div>
+      </div>
+    `).join('')}
+    <button class="tp-add-btn" onclick="tpNewTrap()">＋ Add new trap</button>
+  `;
+}
+
+function tpEditTrap(key) {
+  const traps  = getActiveTraps();
+  TP.editTrapKey = key;
+  TP.draft       = JSON.parse(JSON.stringify(traps[key]));
+  TP.draft._qrKey = key; // store original key
+  TP.view        = 'edit-trap';
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+function tpNewTrap() {
+  TP.editTrapKey = null;
+  TP.draft = {
+    _qrKey:    'WQUEST-TRAP-NEW',
+    title:     'NEW TRAP!',
+    emoji:     '⚡',
+    msg:       'Your team hit a trap!',
+    freezeSec: 60,
+    bonus: { q: '', opts: ['','','',''], correct: 0 },
+    bonusSec:  15,
+  };
+  TP.view = 'new-trap';
+  tpRenderContent();
+  tpUpdateBar();
+}
+
+function tpHtmlTrapEdit(isNew = false) {
+  const d = TP.draft;
+  const optRows = (d.bonus.opts || ['','','','']).map((o, i) => `
+    <div class="opt-editor-row ${d.bonus.correct === i ? 'correct' : ''}" id="trap-opt-row-${i}">
+      <input type="radio" class="opt-radio" name="tp-trap-correct" value="${i}"
+             ${d.bonus.correct === i ? 'checked' : ''}
+             onchange="tpSetTrapCorrect(${i})">
+      <input class="opt-editor-input" type="text" value="${escHtml(o)}"
+             placeholder="Option ${i+1}"
+             oninput="tpDraft('bonus.opts.${i}', this.value)">
+    </div>
+  `).join('');
+
+  return `
+    <div class="tp-section">
+      <div class="tp-section-title">🔖 QR CODE IDENTITY</div>
+      <div class="tp-field">
+        <div class="tp-label">QR code text (what you print)</div>
+        <input class="tp-input" type="text" value="${escHtml(d._qrKey)}"
+               placeholder="e.g. WQUEST-TRAP-VOLCANO"
+               oninput="tpDraft('_qrKey', this.value.toUpperCase())">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Title shown to students</div>
+        <input class="tp-input" type="text" value="${escHtml(d.title)}" oninput="tpDraft('title', this.value)">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Emoji (❄️ ⛈️ 🌋 🌊 🔥 etc.)</div>
+        <input class="tp-input" type="text" value="${escHtml(d.emoji)}" oninput="tpDraft('emoji', this.value)">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Message shown to frozen team</div>
+        <textarea class="tp-textarea" oninput="tpDraft('msg', this.value)">${escHtml(d.msg)}</textarea>
+      </div>
+    </div>
+
+    <div class="tp-section">
+      <div class="tp-section-title">⏱️ FREEZE SETTINGS</div>
+      <div class="tp-field">
+        <div class="tp-label">Freeze duration (seconds)</div>
+        <input class="tp-input-sm" type="number" min="5" max="300" value="${d.freezeSec}"
+               oninput="tpDraft('freezeSec', Number(this.value))">
+      </div>
+    </div>
+
+    <div class="tp-section">
+      <div class="tp-section-title">🎯 BONUS RIDDLE (reduces freeze time)</div>
+      <div class="tp-field">
+        <div class="tp-label">Bonus seconds saved for correct answer</div>
+        <input class="tp-input-sm" type="number" min="0" max="300" value="${d.bonusSec}"
+               oninput="tpDraft('bonusSec', Number(this.value))">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Bonus question text</div>
+        <textarea class="tp-textarea" oninput="tpDraft('bonus.q', this.value)">${escHtml(d.bonus.q)}</textarea>
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Bonus answer options (select ● the correct one)</div>
+        <div class="opt-editor">${optRows}</div>
+      </div>
+    </div>
+
+    <button class="tp-save-btn" onclick="tpSaveTrap()">💾 Save Trap</button>
+    ${!isNew ? `
+      <div style="height:8px;"></div>
+      <button class="tp-delete-btn" onclick="tpDeleteTrap('${TP.editTrapKey}')">🗑️ Delete this trap</button>
+    ` : ''}
+    <div style="height:8px;"></div>
+  `;
+}
+
+function tpSetTrapCorrect(i) {
+  TP.draft.bonus.correct = i;
+  document.querySelectorAll('#trap-bonus-opts .opt-editor-row, [id^="trap-opt-row"]').forEach((row, idx) => {
+    row.classList.toggle('correct', idx === i);
+  });
+}
+
+function tpSaveTrap() {
+  const cfg   = loadCfg();
+  if (!cfg.traps) cfg.traps = JSON.parse(JSON.stringify(getActiveTraps()));
+
+  const d      = TP.draft;
+  const newKey = d._qrKey;
+  const oldKey = TP.editTrapKey;
+
+  const { _qrKey, ...trapData } = d; // remove internal key from saved data
+
+  // If key changed, remove old entry
+  if (oldKey && oldKey !== newKey) delete cfg.traps[oldKey];
+  cfg.traps[newKey] = trapData;
+
+  saveCfg(cfg);
+  tpShowToast('✅ Trap saved!');
+  tpBack();
+}
+
+function tpDeleteTrap(key) {
+  if (!confirm(`Delete trap "${key}"?`)) return;
+  const cfg = loadCfg();
+  if (!cfg.traps) cfg.traps = JSON.parse(JSON.stringify(getActiveTraps()));
+  delete cfg.traps[key];
+  saveCfg(cfg);
+  tpShowToast('🗑️ Trap deleted');
+  tpBack();
+}
+
+// ── QR PRINT TAB ──────────────────────────────────────────────────────────────
+
+function tpHtmlQR() {
+  const caches = getActiveCaches();
+  const traps  = getActiveTraps();
+
+  const cacheCards = caches.map((c, i) => `
+    <div class="tp-qr-card">
+      <div class="tp-qr-code">${c.qr}</div>
+      <div class="tp-qr-desc">Cache #${i+1} · Coordinate ${c.coord}<br>${c.clue.slice(1, 60)}…</div>
+      <button class="tp-copy-btn" onclick="tpCopy('${c.qr}', this)">📋 Copy</button>
+    </div>
+  `).join('');
+
+  const trapCards = Object.entries(traps).map(([k, t]) => `
+    <div class="tp-qr-card is-trap">
+      <div class="tp-qr-code">${k}</div>
+      <div class="tp-qr-desc">${t.title} · Freeze ${t.freezeSec}s</div>
+      <button class="tp-copy-btn" onclick="tpCopy('${k}', this)">📋 Copy</button>
+    </div>
+  `).join('');
+
+  return `
+    <div class="tp-hint">
+      Copy each code below and paste it into <b>qr-code-generator.com</b> to generate a printable QR code.
+    </div>
+    <div class="tp-section-title" style="padding:0;">✅ CACHE CODES</div>
+    ${cacheCards}
+    <div class="tp-section-title" style="padding:8px 0 0;">❌ TRAP CODES</div>
+    ${trapCards}
+  `;
+}
+
+function tpCopy(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 1500);
+  }).catch(() => {
+    prompt('Copy this text:', text);
+  });
+}
+
+// ── SETTINGS TAB ─────────────────────────────────────────────────────────────
+
+function tpHtmlSettings() {
+  const s = getActiveSettings();
+  return `
+    <div class="tp-section">
+      <div class="tp-section-title">🎓 GAME SETTINGS</div>
+      <div class="tp-field">
+        <div class="tp-label">Class name (shown in header)</div>
+        <input class="tp-input" type="text" id="s-class" value="${escHtml(s.className)}">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Wrong answer penalty (coins)</div>
+        <input class="tp-input-sm" type="number" min="0" max="100" id="s-fine" value="${s.wrongAnswerFine}">
+      </div>
+      <div class="tp-field">
+        <div class="tp-label">Teacher PIN</div>
+        <input class="tp-input" type="text" id="s-pin" value="${escHtml(s.teacherPin)}" maxlength="20">
+      </div>
+      <button class="tp-save-btn" onclick="tpSaveSettings()">💾 Save Settings</button>
+    </div>
+
+    <div class="tp-section">
+      <div class="tp-section-title">🔄 RESET OPTIONS</div>
+      <div class="tp-hint" style="margin-bottom:10px;">
+        Resetting game data clears students' progress. Resetting configuration restores all questions to defaults.
+      </div>
+      <button class="tp-delete-btn" style="margin-bottom:8px;"
+              onclick="if(confirm('Reset all student game data?')){ resetGame(); closeTeacher(); }">
+        🗑️ Reset all student progress
+      </button>
+      <button class="tp-delete-btn"
+              onclick="if(confirm('Reset ALL custom questions, traps, and settings to defaults?')){ localStorage.removeItem('wq_config'); tpShowToast('✅ Config reset to defaults'); tpRenderContent(); }">
+        ↩️ Reset config to defaults
+      </button>
+    </div>
+  `;
+}
+
+function tpSaveSettings() {
+  const cfg = loadCfg();
+  cfg.settings = {
+    className:       document.getElementById('s-class').value.trim(),
+    wrongAnswerFine: Number(document.getElementById('s-fine').value),
+    teacherPin:      document.getElementById('s-pin').value.trim() || '1234',
+  };
+  saveCfg(cfg);
+  tpShowToast('✅ Settings saved!');
+}
+
+// ── Draft helper — deep-set nested path ──────────────────────────────────────
+
+function tpDraft(path, value) {
+  const parts = path.split('.');
+  let obj = TP.draft;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = isNaN(parts[i]) ? parts[i] : Number(parts[i]);
+    if (obj[key] === undefined || obj[key] === null) obj[key] = {};
+    obj = obj[key];
+  }
+  const last = parts[parts.length - 1];
+  obj[isNaN(last) ? last : Number(last)] = value;
+}
+
+// ── Toast notification ────────────────────────────────────────────────────────
+
+function tpShowToast(msg) {
+  const t = document.createElement('div');
+  t.className   = 'tp-success-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
 }
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
@@ -562,6 +1055,14 @@ function fmtSec(sec) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
@@ -581,7 +1082,8 @@ function fmtSec(sec) {
       navigate('trap');
     } else {
       if (G.isFrozen) { G.isFrozen = false; G.freezeEnd = null; G.trap = null; save(); }
-      if (G.done.length >= CACHES.length) navigate('finish');
+      const caches = getActiveCaches();
+      if (G.done.length >= caches.length) navigate('finish');
       else if (G.found) navigate('task');
       else navigate('hunt');
     }
