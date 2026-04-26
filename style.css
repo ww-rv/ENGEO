@@ -700,3 +700,314 @@ body {
   line-height: 1.8;
   border: 1px solid rgba(92,58,30,.1);
 }
+
+/* ════════════════════════════════════════════════════════
+   TEACHER PANEL — full admin dashboard
+   ════════════════════════════════════════════════════════ */
+
+.overlay-teacher {
+  background: #f5f0e8;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── Top bar ─────────────────────────────────────────── */
+.tp-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 52px 14px 12px;
+  background: var(--moss-deep);
+  color: var(--paper);
+  flex-shrink: 0;
+}
+.tp-bar-title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--fd);
+  font-weight: 700;
+  font-size: 17px;
+}
+.tp-back-btn, .tp-close-btn {
+  background: rgba(250,243,226,.15);
+  border: none;
+  color: var(--paper);
+  font-family: var(--fb);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tp-back-btn:hover, .tp-close-btn:hover { background: rgba(250,243,226,.25); }
+
+/* ── Tab bar ─────────────────────────────────────────── */
+.tp-tabs {
+  display: flex;
+  background: var(--moss-deep);
+  padding: 0 12px 12px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tp-tab {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 4px;
+  font-family: var(--fb);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(250,243,226,.12);
+  color: rgba(250,243,226,.65);
+  transition: background .15s, color .15s;
+}
+.tp-tab.active {
+  background: var(--gold-l);
+  color: var(--moss-deep);
+}
+
+/* ── Scrollable content ──────────────────────────────── */
+.tp-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Cache / Trap list cards ─────────────────────────── */
+.tp-item-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(45,33,20,.08);
+  cursor: pointer;
+  border: 1px solid rgba(92,58,30,.08);
+  transition: box-shadow .12s, transform .1s;
+}
+.tp-item-card:active { transform: scale(.98); }
+.tp-item-card:hover  { box-shadow: 0 4px 12px rgba(45,33,20,.12); }
+.tp-item-num {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: var(--moss-deep);
+  color: var(--gold-l);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--fd); font-weight: 800; font-size: 16px;
+  flex-shrink: 0;
+}
+.tp-item-num.trap { background: var(--berry); }
+.tp-item-body { flex: 1; min-width: 0; }
+.tp-item-title { font-weight: 800; font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-item-sub   { font-size: 11px; color: var(--ink-s); margin-top: 2px; font-family: var(--fm); }
+.tp-item-arrow { color: var(--bark-l); font-size: 18px; flex-shrink: 0; }
+
+.tp-add-btn {
+  background: rgba(45,90,61,.1);
+  border: 2px dashed var(--moss);
+  border-radius: 14px;
+  padding: 14px;
+  font-family: var(--fb);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--moss-deep);
+  cursor: pointer;
+  text-align: center;
+  width: 100%;
+}
+
+/* ── Edit form ───────────────────────────────────────── */
+.tp-section {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(45,33,20,.07);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tp-section-title {
+  font-family: var(--fm);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  color: var(--bark);
+  margin-bottom: 2px;
+}
+.tp-field { display: flex; flex-direction: column; gap: 5px; }
+.tp-label { font-size: 12px; font-weight: 700; color: var(--ink-s); }
+.tp-input, .tp-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid rgba(92,58,30,.15);
+  border-radius: 10px;
+  font-family: var(--fb);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper-w);
+  outline: none;
+}
+.tp-input:focus, .tp-select:focus { border-color: var(--moss); }
+.tp-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid rgba(92,58,30,.15);
+  border-radius: 10px;
+  font-family: var(--fb);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper-w);
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.45;
+}
+.tp-textarea:focus { border-color: var(--moss); }
+.tp-input-sm {
+  width: 80px;
+  padding: 8px 10px;
+  border: 2px solid rgba(92,58,30,.15);
+  border-radius: 8px;
+  font-family: var(--fm);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper-w);
+  outline: none;
+  text-align: center;
+}
+
+/* ── MCQ option editor ───────────────────────────────── */
+.opt-editor { display: flex; flex-direction: column; gap: 8px; }
+.opt-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.opt-radio {
+  width: 20px; height: 20px;
+  accent-color: var(--moss);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.opt-editor-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 2px solid rgba(92,58,30,.15);
+  border-radius: 10px;
+  font-family: var(--fb);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper-w);
+  outline: none;
+}
+.opt-editor-input:focus { border-color: var(--moss); }
+.opt-editor-row.correct .opt-editor-input { border-color: var(--moss); background: rgba(45,90,61,.07); }
+
+/* ── Save / delete buttons ───────────────────────────── */
+.tp-save-btn {
+  background: linear-gradient(180deg, var(--moss-light), var(--moss-deep));
+  color: var(--gold-l);
+  border: none;
+  border-radius: 14px;
+  padding: 14px 20px;
+  font-family: var(--fb);
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 3px 0 #143020, 0 6px 16px rgba(31,69,48,.3);
+}
+.tp-delete-btn {
+  background: rgba(192,75,63,.1);
+  color: var(--berry);
+  border: 1.5px solid var(--berry);
+  border-radius: 12px;
+  padding: 12px;
+  font-family: var(--fb);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+}
+.tp-success-toast {
+  position: fixed;
+  bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--moss-deep);
+  color: var(--gold-l);
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+  z-index: 9999;
+  animation: toast-in .25s ease-out;
+  white-space: nowrap;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ── QR print tab ────────────────────────────────────── */
+.tp-qr-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(45,33,20,.07);
+  border-left: 4px solid var(--moss);
+}
+.tp-qr-card.is-trap { border-left-color: var(--berry); }
+.tp-qr-code {
+  font-family: var(--fm);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--moss-deep);
+  word-break: break-all;
+  margin-bottom: 6px;
+}
+.tp-qr-card.is-trap .tp-qr-code { color: var(--berry); }
+.tp-qr-desc { font-size: 12px; color: var(--ink-s); line-height: 1.4; }
+.tp-copy-btn {
+  margin-top: 8px;
+  background: rgba(45,90,61,.1);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--moss-deep);
+  cursor: pointer;
+  font-family: var(--fb);
+}
+.tp-copy-btn:active { background: rgba(45,90,61,.2); }
+
+/* ── Settings tab ────────────────────────────────────── */
+.tp-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tp-settings-label { font-size: 14px; font-weight: 700; color: var(--ink); }
+.tp-settings-sub   { font-size: 11px; color: var(--ink-s); margin-top: 2px; }
+
+/* ── Hint text ───────────────────────────────────────── */
+.tp-hint {
+  font-size: 12px;
+  color: var(--ink-s);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: rgba(232,181,71,.12);
+  border-radius: 8px;
+  border-left: 3px solid var(--gold);
+}
