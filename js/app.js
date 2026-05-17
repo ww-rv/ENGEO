@@ -52,12 +52,25 @@ function getActiveAssignments() {
 function getTeamTask(cache, cacheIdx) {
   try {
     if (!G.teamId) return cache.task;
+
+    // Explicit teacher assignment takes priority
     const assign = getActiveAssignments();
     const teamA  = assign[G.teamId];
-    if (!teamA) return cache.task;
-    const vi = Array.isArray(teamA.cacheVariants) ? (teamA.cacheVariants[cacheIdx] ?? 0) : 0;
-    if (vi === 0 || !Array.isArray(cache.variants) || !cache.variants[vi - 1]) return cache.task;
-    return cache.variants[vi - 1];
+    if (teamA && Array.isArray(teamA.cacheVariants)) {
+      const vi = teamA.cacheVariants[cacheIdx] ?? 0;
+      if (vi > 0 && Array.isArray(cache.variants) && cache.variants[vi - 1]) {
+        return cache.variants[vi - 1];
+      }
+      return cache.task;
+    }
+
+    // Auto-assign: team index 0 → default, index N → variants[N-1]
+    const teamIdx = TEAMS.findIndex(t => t.id === G.teamId);
+    if (teamIdx > 0 && Array.isArray(cache.variants) && cache.variants[teamIdx - 1]) {
+      return cache.variants[teamIdx - 1];
+    }
+
+    return cache.task;
   } catch(e) { return cache.task; }
 }
 
@@ -1265,7 +1278,7 @@ function tpSaveTeamAssignment(teamId) {
 }
 
 function tpApplyToAll() {
-  if (!confirm('Apply the same task variants and trap settings to ALL 6 teams?')) return;
+  if (!confirm('Apply the same task variants and trap settings to ALL ' + TEAMS.length + ' teams?')) return;
   const all = TP.assignDraft.__all__;
   const cfg = loadCfg();
   if (!cfg.assignments) cfg.assignments = {};
@@ -1274,7 +1287,7 @@ function tpApplyToAll() {
     TP.assignDraft[t.id]  = JSON.parse(JSON.stringify(all));
   });
   saveCfg(cfg);
-  tpShowToast('✅ Applied to all 6 teams!');
+  tpShowToast('✅ Applied to all ' + TEAMS.length + ' teams!');
   tpRenderContent();
 }
 
@@ -1336,7 +1349,7 @@ function tpHtmlAssign() {
         <div class="tp-assign-traps">${trapToggles('__all__')}</div>
       ` : ''}
       <button class="tp-save-btn" style="margin-top:12px;background:var(--moss-deep);"
-              onclick="tpApplyToAll()">✔ Apply to ALL 6 teams</button>
+              onclick="tpApplyToAll()">✔ Apply to ALL ${TEAMS.length} teams</button>
     </div>
   `;
 
